@@ -10,7 +10,7 @@ import {format, differenceInDays, isPast} from "date-fns"
 import {es} from 'date-fns/locale';
 import {AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger} from '@/components/ui/alert-dialog';
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
-import {Check, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, Clock, Settings} from "lucide-react";
+import {Check, ChevronLeft, ChevronRight, Loader2, Trash2, Clock, Settings} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -289,7 +289,7 @@ function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId, icon
           </TooltipProvider>
         </CardTitle>
       </CardHeader>
-      <DropdownMenu>
+        <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline">Mostrar Tareas</Button>
         </DropdownMenuTrigger>
@@ -301,6 +301,18 @@ function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId, icon
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+       <CardContent className="flex flex-col gap-4">
+        {tasks.map((task, index) => (
+          <TaskCard
+            key={task.title}
+            task={task}
+            moveTask={moveTask}
+            confirmDeleteTask={confirmDeleteTask}
+            from={columnId}
+            taskNumber={index + 1}
+          />
+        ))}
+      </CardContent>
     </Card>
   );
 }
