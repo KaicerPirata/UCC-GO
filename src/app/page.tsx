@@ -10,7 +10,13 @@ import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover"
 import {format} from "date-fns"
 import {AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger} from '@/components/ui/alert-dialog';
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
-import {Check, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2} from "lucide-react";
+import {Check, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, Clock, Settings} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function Home() {
   const [pendingTasks, setPendingTasks] = useState<string[]>([]);
@@ -38,7 +44,7 @@ export default function Home() {
         });
         setSuggestedDueDate(aiSuggestion.suggestedDueDate);
       } catch (error) {
-        console.error('Error getting AI suggestion:', error);
+        console.error('Error al obtener sugerencia:', error);
         setSuggestedDueDate('Error al obtener sugerencia');
       }
     }
@@ -120,6 +126,7 @@ export default function Home() {
                 selected={dueDate}
                 onSelect={handleDateChange}
                 initialFocus
+                fromMonth={new Date()}
               />
             </PopoverContent>
           </Popover>
@@ -201,6 +208,7 @@ function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId}: Kan
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             from={columnId}
+            taskNumber={index + 1}
           />
         ))}
       </CardContent>
@@ -213,18 +221,31 @@ interface TaskCardProps {
   moveTask: (task: string, from: string, to: string) => void;
   confirmDeleteTask: (task: string, from: string) => void;
   from: string;
+  taskNumber: number;
 }
 
-function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
+function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCardProps) {
   return (
     <Card className="bg-white rounded-md shadow-sm">
       <CardContent>
-        <p>{task}</p>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="p-2 w-full justify-start">
+              {taskNumber}. {task}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56">
+            <DropdownMenuItem>{task}</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <div className="flex justify-between mt-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <IconButton onClick={() => moveTask(task, from, 'Pendiente')} icon={<ChevronLeft className="h-4 w-4"/>}/>
+                <IconButton
+                  onClick={() => moveTask(task, from, 'Pendiente')}
+                  icon={<Clock className="h-4 w-4"/>}
+                />
               </TooltipTrigger>
               <TooltipContent>
                 Mover a Pendiente
@@ -232,7 +253,10 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <IconButton onClick={() => moveTask(task, from, 'En Progreso')} icon={<Pencil className="h-4 w-4"/>}/>
+                <IconButton
+                  onClick={() => moveTask(task, from, 'En Progreso')}
+                  icon={<Settings className="h-4 w-4"/>}
+                />
               </TooltipTrigger>
               <TooltipContent>
                 Mover a En Progreso
@@ -240,7 +264,10 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <IconButton onClick={() => moveTask(task, from, 'Completada')} icon={<Check className="h-4 w-4"/>}/>
+                <IconButton
+                  onClick={() => moveTask(task, from, 'Completada')}
+                  icon={<Check className="h-4 w-4"/>}
+                />
               </TooltipTrigger>
               <TooltipContent>
                 Mover a Completada
@@ -248,7 +275,10 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <IconButton onClick={() => confirmDeleteTask(task, from)} icon={<Trash2 className="h-4 w-4"/>}/>
+                <IconButton
+                  onClick={() => confirmDeleteTask(task, from)}
+                  icon={<Trash2 className="h-4 w-4"/>}
+                />
               </TooltipTrigger>
               <TooltipContent>
                 Eliminar Tarea
