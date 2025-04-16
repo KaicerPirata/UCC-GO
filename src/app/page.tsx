@@ -1,6 +1,6 @@
 'use client';
 
-import {useState} from 'react';
+import {useState, useEffect} from 'react';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {suggestDueDate} from '@/ai/flows/suggest-due-date';
@@ -28,6 +28,15 @@ export default function Home() {
   const [open, setOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const [fromColumnToDelete, setFromColumnToDelete] = useState<string | null>(null);
+  const [formattedDate, setFormattedDate] = useState('');
+
+  useEffect(() => {
+    if (dueDate) {
+      setFormattedDate(format(dueDate, "PPP", {locale: new (Intl.DateTimeFormat().constructor)('es')}));
+    } else {
+      setFormattedDate('Escoge una fecha');
+    }
+  }, [dueDate]);
 
   const handleDateChange = (date: Date | undefined) => {
     setDueDate(date);
@@ -113,11 +122,7 @@ export default function Home() {
                   !dueDate && "text-muted-foreground"
                 )}
               >
-                {dueDate ? (
-                  format(dueDate, "PPP")
-                ) : (
-                  <span>Escoge una fecha</span>
-                )}
+                {formattedDate}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start" side="bottom">
@@ -127,6 +132,7 @@ export default function Home() {
                 onSelect={handleDateChange}
                 initialFocus
                 fromMonth={new Date()}
+                defaultMonth={new Date()}
               />
             </PopoverContent>
           </Popover>
@@ -195,8 +201,21 @@ interface KanbanColumnProps {
 }
 
 function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId}: KanbanColumnProps) {
+  const getColumnBackgroundColor = () => {
+    switch (title) {
+      case "Pendiente":
+        return "bg-gray-50";
+      case "En Progreso":
+        return "bg-blue-50";
+      case "Completada":
+        return "bg-green-50";
+      default:
+        return "bg-gray-100";
+    }
+  };
+
   return (
-    <Card className="w-80 bg-gray-100 rounded-md shadow-sm">
+    <Card className={`w-80 rounded-md shadow-sm ${getColumnBackgroundColor()}`}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
