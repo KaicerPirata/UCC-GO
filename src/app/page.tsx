@@ -17,6 +17,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {Input} from "@/components/ui/input";
+import {Textarea} from "@/components/ui/textarea";
 
 interface Task {
   title: string;
@@ -37,7 +39,7 @@ export default function Home() {
   const [formattedDate, setFormattedDate] = useState('Escoge una fecha');
 
   useEffect(() => {
-    if (dueDate instanceof Date && !isNaN(dueDate.getTime())) {
+    if (dueDate instanceof Date) {
       setFormattedDate(format(dueDate, "PPP", { locale: es }));
     } else {
       setFormattedDate('Escoge una fecha');
@@ -116,49 +118,53 @@ export default function Home() {
       <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4">
         <h1 className="text-2xl font-bold">Tablero Kanban de TaskFlow</h1>
 
-        <div className="flex gap-4">
-          <input
+        <div className="flex flex-col gap-2">
+           <div>Título:</div>
+          <Input
             type="text"
             placeholder="Ingrese el título de la tarea"
             value={newTaskTitle}
             onChange={(e) => setNewTaskTitle(e.target.value)}
             className="border rounded p-2 w-full"
           />
-           <input
-            type="text"
+           <div>Descripción:</div>
+           <Textarea
             placeholder="Ingrese la descripción de la tarea"
             value={newTaskDescription}
             onChange={(e) => setNewTaskDescription(e.target.value)}
             className="border rounded p-2 w-full"
           />
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-[240px] justify-start text-left font-normal",
-                  !dueDate && "text-muted-foreground"
-                )}
-              >
-                {formattedDate}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start" side="bottom">
-              <Calendar
-                mode="single"
-                selected={dueDate}
-                onSelect={handleDateChange}
-                initialFocus
-                fromMonth={new Date()}
-                defaultMonth={new Date()}
-                
-              />
-            </PopoverContent>
-          </Popover>
 
-          <Button onClick={handleAddTask} className="bg-teal-500 text-white rounded px-4 py-2">
-            Agregar Tarea
-          </Button>
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-[240px] justify-start text-left font-normal",
+                    !dueDate && "text-muted-foreground"
+                  )}
+                >
+                  {formattedDate}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start" side="bottom">
+                <Calendar
+                  mode="single"
+                  selected={dueDate}
+                  onSelect={handleDateChange}
+                  initialFocus
+                  fromMonth={new Date()}
+                  defaultMonth={new Date()}
+                  
+                />
+              </PopoverContent>
+            </Popover>
+
+            <Button onClick={handleAddTask} className="bg-teal-500 text-white rounded px-4 py-2">
+              Agregar Tarea
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-4">
@@ -271,6 +277,9 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
         <div className="text-xs">
           Título: {task.title}
         </div>
+        <div className="text-xs">
+          Descripción: {task.description}
+        </div>
         
         <div className="flex justify-between mt-2">
           {task.dueDate && (
@@ -324,9 +333,6 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-        </div>
-        <div className="text-xs">
-          Descripción: {task.description}
         </div>
       </CardContent>
     </Card>
