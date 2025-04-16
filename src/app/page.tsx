@@ -63,28 +63,22 @@ export default function Home() {
 
   const moveTask = (taskTitle: string, from: string, to: string) => {
     let taskToMove: Task | undefined;
+    let taskList: Task[] = [];
 
-    // Function to remove task from a column
-    const removeTask = (column: string) => {
-      if (column === 'Pendiente') {
-        setPendingTasks(pendingTasks.filter(task => task.title !== taskTitle));
-      } else if (column === 'En Progreso') {
-        setInProgressTasks(inProgressTasks.filter(task => task.title !== taskTitle));
-      } else if (column === 'Completada') {
-        setCompletedTasks(completedTasks.filter(task => task.title !== taskTitle));
-      }
-    };
-  
     if (from === 'Pendiente') {
-      taskToMove = pendingTasks.find(task => task.title === taskTitle);
+      taskList = pendingTasks;
+      setPendingTasks(pendingTasks.filter(task => task.title !== taskTitle));
     } else if (from === 'En Progreso') {
-      taskToMove = inProgressTasks.find(task => task.title === taskTitle);
+      taskList = inProgressTasks;
+      setInProgressTasks(inProgressTasks.filter(task => task.title !== taskTitle));
     } else if (from === 'Completada') {
-      taskToMove = completedTasks.find(task => task.title === taskTitle);
+      taskList = completedTasks;
+      setCompletedTasks(completedTasks.filter(task => task.title !== taskTitle));
     }
+
+    taskToMove = taskList.find(task => task.title === taskTitle);
   
     if (taskToMove) {
-      removeTask(from); // Remove from original column
       if (to === 'Pendiente') {
         setPendingTasks([...pendingTasks, taskToMove]);
       } else if (to === 'En Progreso') {
@@ -184,6 +178,7 @@ export default function Home() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="Pendiente"
+            icon={<Clock className="h-4 w-4"/>}
           />
           <KanbanColumn
             title="En Progreso"
@@ -191,6 +186,7 @@ export default function Home() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="En Progreso"
+            icon={<Settings className="h-4 w-4"/>}
           />
           <KanbanColumn
             title="Completada"
@@ -198,6 +194,7 @@ export default function Home() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="Completada"
+            icon={<Check className="h-4 w-4"/>}
           />
         </div>
 
@@ -231,9 +228,10 @@ interface KanbanColumnProps {
   moveTask: (taskTitle: string, from: string, to: string) => void;
   confirmDeleteTask: (taskTitle: string, from: string) => void;
   columnId: string;
+  icon: React.ReactNode;
 }
 
-function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId}: KanbanColumnProps) {
+function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId, icon}: KanbanColumnProps) {
   const getColumnBackgroundColor = () => {
     switch (title) {
       case "Pendiente":
@@ -247,10 +245,35 @@ function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId}: Kan
     }
   };
 
+  const getTooltipText = () => {
+    switch (title) {
+      case "Pendiente":
+        return "Tareas por hacer";
+      case "En Progreso":
+        return "Tareas en ejecución";
+      case "Completada":
+        return "Tareas finalizadas";
+      default:
+        return "";
+    }
+  };
+
   return (
     <Card className={`w-80 rounded-md shadow-sm ${getColumnBackgroundColor()}`}>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-md font-medium flex items-center gap-2">
+          {title}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {icon}
+              </TooltipTrigger>
+              <TooltipContent>
+                {getTooltipText()}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         {tasks.map((task, index) => (
