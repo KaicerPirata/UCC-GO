@@ -1,4 +1,3 @@
-
 'use client';
 
 import {useState} from 'react';
@@ -40,31 +39,31 @@ export default function Home() {
   };
 
   const moveTask = (task: string, from: string, to: string) => {
-    if (from === 'Pending') {
+    if (from === 'Pendiente') {
       setPendingTasks(pendingTasks.filter((t) => t !== task));
-    } else if (from === 'In Progress') {
+    } else if (from === 'En Progreso') {
       setInProgressTasks(inProgressTasks.filter((t) => t !== task));
-    } else if (from === 'Completed') {
+    } else if (from === 'Completada') {
       setCompletedTasks(completedTasks.filter((t) => t !== task));
     }
 
-    if (to === 'Pending') {
+    if (to === 'Pendiente') {
       setPendingTasks([...pendingTasks, task]);
-    } else if (to === 'In Progress') {
+    } else if (to === 'En Progreso') {
       setInProgressTasks([...inProgressTasks, task]);
-    } else if (to === 'Completed') {
+    } else if (to === 'Completada') {
       setCompletedTasks([...completedTasks, task]);
     }
   };
 
   return (
     <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4">
-      <h1 className="text-2xl font-bold">TaskFlow Kanban Board</h1>
+      <h1 className="text-2xl font-bold">Tablero Kanban de TaskFlow</h1>
 
       <div className="flex gap-4">
         <input
           type="text"
-          placeholder="Enter task description"
+          placeholder="Ingrese la descripción de la tarea"
           value={newTaskDescription}
           onChange={(e) => setNewTaskDescription(e.target.value)}
           className="border rounded p-2 w-full"
@@ -81,7 +80,7 @@ export default function Home() {
               {dueDate ? (
                 format(dueDate, "PPP")
               ) : (
-                <span>Pick a date</span>
+                <span>Escoge una fecha</span>
               )}
             </Button>
           </PopoverTrigger>
@@ -99,30 +98,30 @@ export default function Home() {
         </Popover>
 
         <Button onClick={handleAddTask} className="bg-teal-500 text-white rounded px-4 py-2">
-          Add Task
+          Agregar Tarea
         </Button>
       </div>
 
-      {suggestedDueDate && <p>Suggested Due Date: {suggestedDueDate}</p>}
+      {suggestedDueDate && <p>Fecha de Vencimiento Sugerida: {suggestedDueDate}</p>}
 
       <div className="flex flex-wrap gap-4">
         <KanbanColumn
-          title="Pending"
+          title="Pendiente"
           tasks={pendingTasks}
           moveTask={moveTask}
-          columnId="Pending"
+          columnId="Pendiente"
         />
         <KanbanColumn
-          title="In Progress"
+          title="En Progreso"
           tasks={inProgressTasks}
           moveTask={moveTask}
-          columnId="In Progress"
+          columnId="En Progreso"
         />
         <KanbanColumn
-          title="Completed"
+          title="Completada"
           tasks={completedTasks}
           moveTask={moveTask}
-          columnId="Completed"
+          columnId="Completada"
         />
       </div>
     </main>
@@ -170,27 +169,28 @@ function TaskCard({task, moveTask, from}: TaskCardProps) {
         <div className="flex justify-between mt-2">
           <Button
             size="sm"
-            onClick={() => moveTask(task, from, 'Pending')}
+            onClick={() => moveTask(task, from, 'Pendiente')}
             className="bg-teal-500 text-white rounded px-2 py-1"
           >
-            Pending
+            Pendiente
           </Button>
           <Button
             size="sm"
-            onClick={() => moveTask(task, from, 'In Progress')}
+            onClick={() => moveTask(task, from, 'En Progreso')}
             className="bg-teal-500 text-white rounded px-2 py-1"
           >
-            In Progress
+            En Progreso
           </Button>
           <Button
             size="sm"
-            onClick={() => moveTask(task, from, 'Completed')}
+            onClick={() => moveTask(task, from, 'Completada')}
             className="bg-teal-500 text-white rounded px-2 py-1"
           >
-            Completed
+            Completada
           </Button>
         </div>
       </CardContent>
     </Card>
   );
 }
+

@@ -38,7 +38,7 @@ const prompt = ai.definePrompt({
       reasoning: z.string().describe('The reasoning behind the suggested due date.'),
     }),
   },
-  prompt: `You are an AI assistant that suggests a due date for a new task based on its description.\n\nConsider the task description and estimate the effort required to complete the task. Based on the estimated effort, suggest a due date in ISO 8601 format. Provide a brief reasoning for the suggested due date.\n\nTask Description: {{{taskDescription}}}`,
+  prompt: `Eres un asistente de IA que sugiere una fecha de vencimiento para una nueva tarea basándose en su descripción.\n\nConsidera la descripción de la tarea y estima el esfuerzo necesario para completarla. Basándote en el esfuerzo estimado, sugiere una fecha de vencimiento en formato ISO 8601. Proporciona un breve razonamiento para la fecha de vencimiento sugerida.\n\nDescripción de la tarea: {{{taskDescription}}}`,
 });
 
 const suggestDueDateFlow = ai.defineFlow<
@@ -52,3 +52,4 @@ const suggestDueDateFlow = ai.defineFlow<
   const {output} = await prompt(input);
   return output!;
 });
+
