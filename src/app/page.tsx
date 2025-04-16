@@ -63,23 +63,28 @@ export default function Home() {
 
   const moveTask = (taskTitle: string, from: string, to: string) => {
     let taskToMove: Task | undefined;
-    let fromTaskList: Task[] = [];
 
+    // Function to remove task from a column
+    const removeTask = (column: string) => {
+      if (column === 'Pendiente') {
+        setPendingTasks(pendingTasks.filter(task => task.title !== taskTitle));
+      } else if (column === 'En Progreso') {
+        setInProgressTasks(inProgressTasks.filter(task => task.title !== taskTitle));
+      } else if (column === 'Completada') {
+        setCompletedTasks(completedTasks.filter(task => task.title !== taskTitle));
+      }
+    };
+  
     if (from === 'Pendiente') {
       taskToMove = pendingTasks.find(task => task.title === taskTitle);
-      fromTaskList = pendingTasks;
-      setPendingTasks(pendingTasks.filter(task => task.title !== taskToDelete));
     } else if (from === 'En Progreso') {
       taskToMove = inProgressTasks.find(task => task.title === taskTitle);
-      fromTaskList = inProgressTasks;
-      setInProgressTasks(inProgressTasks.filter(task => task.title !== taskToDelete));
     } else if (from === 'Completada') {
       taskToMove = completedTasks.find(task => task.title === taskTitle);
-      fromTaskList = completedTasks;
-      setCompletedTasks(completedTasks.filter(task => task.title !== taskToDelete));
     }
-
+  
     if (taskToMove) {
+      removeTask(from); // Remove from original column
       if (to === 'Pendiente') {
         setPendingTasks([...pendingTasks, taskToMove]);
       } else if (to === 'En Progreso') {
