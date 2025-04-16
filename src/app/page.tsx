@@ -54,25 +54,27 @@ export default function Home() {
   };
 
   const handleAddTask = async () => {
-    if (newTaskTitle && newTaskDescription) {
-      const newTask: Task = {
-        id: crypto.randomUUID(),
-        title: newTaskTitle,
-        description: newTaskDescription,
-        dueDate: dueDate
-      };
-      setPendingTasks([...pendingTasks, newTask]);
-      setNewTaskTitle('');
-      setNewTaskDescription('');
-      setDueDate(undefined);
-      setFormattedDate('Escoge una fecha');
-      toast({
-        title: "Tarea agregada!",
-        description: "Tarea agregada a Pendiente.",
-      })
-    } else {
+    if (!newTaskTitle || !newTaskDescription) {
       setShowAlert(true);
+      return;
     }
+
+    const newTask: Task = {
+      id: crypto.randomUUID(),
+      title: newTaskTitle,
+      description: newTaskDescription,
+      dueDate: dueDate
+    };
+    setPendingTasks([...pendingTasks, newTask]);
+    setNewTaskTitle('');
+    setNewTaskDescription('');
+    setDueDate(undefined);
+    setFormattedDate('Escoge una fecha');
+    toast({
+      title: "Tarea agregada!",
+      description: "Tarea agregada a Pendiente.",
+    })
+
   };
 
   const moveTask = (taskId: string, from: string, to: string) => {
@@ -376,47 +378,49 @@ function KanbanColumn({
     <Card className={`w-80 rounded-md shadow-sm ${getColumnBackgroundColor()}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-md font-medium flex items-center gap-2">
-          {title}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                {icon}
-              </TooltipTrigger>
-              <TooltipContent>
-                {getTooltipText()}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Accordion type="single" collapsible onValueChange={handleAccordionClick}>
+            <AccordionItem value={columnId}>
+              <AccordionTrigger>
+                {dropdownTitle}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      {icon}
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {getTooltipText()}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </AccordionTrigger>
+              <AccordionContent>
+                {tasks.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Agrega tareas a esta sección.
+                  </div>
+                ) : (
+                  tasks.map((task, index) => {
+                    const taskNumber = index + 1;
+                    return (
+                      <div key={task.id} className="mb-2">
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start"
+                          onClick={() => onTaskClick(task, columnId)}
+                        >
+                          {taskNumber}. {task.title}
+                        </Button>
+                      </div>
+                    );
+                  })
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <Accordion type="single" collapsible onValueChange={handleAccordionClick}>
-          <AccordionItem value={columnId}>
-            <AccordionTrigger>{dropdownTitle}</AccordionTrigger>
-            <AccordionContent>
-              {tasks.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  Agrega tareas a esta sección.
-                </div>
-              ) : (
-                tasks.map((task, index) => {
-                  const taskNumber = index + 1;
-                  return (
-                    <div key={task.id} className="mb-2">
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => onTaskClick(task, columnId)}
-                      >
-                        {taskNumber}. {task.title}
-                      </Button>
-                    </div>
-                  );
-                })
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+
 
         {selectedTask && selectedColumn === columnId && (
           <TaskCard
@@ -465,11 +469,14 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <IconButton
-                  onClick={() => moveTask(task.id, from, 'Pendiente')}
-                  icon={<Clock className="h-4 w-4"/>}
-                  color="bg-blue-500"
-                />
+                {from !== 'Pendiente' && (
+                  <IconButton
+                    onClick={() => moveTask(task.id, from, 'Pendiente')}
+                    icon={<Clock className="h-4 w-4"/>}
+                    color="bg-blue-500"
+                    tooltipText="Mover a Pendiente"
+                  />
+                )}
               </TooltipTrigger>
               <TooltipContent>
                 Mover a Pendiente
@@ -477,11 +484,14 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <IconButton
-                  onClick={() => moveTask(task.id, from, 'En Progreso')}
-                  icon={<Settings className="h-4 w-4"/>}
-                  color="bg-yellow-500"
-                />
+                {from !== 'En Progreso' && (
+                  <IconButton
+                    onClick={() => moveTask(task.id, from, 'En Progreso')}
+                    icon={<Settings className="h-4 w-4"/>}
+                    color="bg-yellow-500"
+                    tooltipText="Mover a En Progreso"
+                  />
+                )}
               </TooltipTrigger>
               <TooltipContent>
                 Mover a En Progreso
@@ -489,11 +499,14 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <IconButton
-                  onClick={() => moveTask(task.id, from, 'Completada')}
-                  icon={<Check className="h-4 w-4"/>}
-                  color="bg-green-500"
-                />
+                {from !== 'Completada' && (
+                  <IconButton
+                    onClick={() => moveTask(task.id, from, 'Completada')}
+                    icon={<Check className="h-4 w-4"/>}
+                    color="bg-green-500"
+                    tooltipText="Mover a Completada"
+                  />
+                )}
               </TooltipTrigger>
               <TooltipContent>
                 Mover a Completada
@@ -505,6 +518,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
                   onClick={() => confirmDeleteTask(task.id, from)}
                   icon={<Trash2 className="h-4 w-4"/>}
                   color="bg-red-500"
+                  tooltipText="Eliminar Tarea"
                 />
               </TooltipTrigger>
               <TooltipContent>
@@ -522,12 +536,22 @@ interface IconButtonProps {
   onClick?: () => void;
   icon: React.ReactNode;
   color: string;
+  tooltipText: string;
 }
 
-function IconButton({onClick, icon, color}: IconButtonProps) {
+function IconButton({onClick, icon, color, tooltipText}: IconButtonProps) {
   return (
-    <Button size="icon" variant="ghost" onClick={onClick} className={color}>
-      {icon}
-    </Button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button size="icon" variant="ghost" onClick={onClick} className={color}>
+            {icon}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {tooltipText}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
