@@ -92,7 +92,7 @@ export default function Home() {
       } else if (to === 'Completada') {
         setCompletedTasks([...completedTasks, taskToMove]);
       }
-    }
+    };
   };
 
   const confirmDeleteTask = (taskTitle: string, from: string) => {
@@ -290,13 +290,16 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
         <div className="text-xs">
           Descripción: {task.description}
         </div>
+        {task.dueDate && (
+          <span className={cn("text-sm", dueDateClassName)}>
+            Fecha: {task.dueDate ? format(task.dueDate, "PPP", { locale: es }) : 'Sin fecha'}
+          </span>
+        )}
         
+        
+      </CardContent>
+      <CardContent>
         <div className="flex justify-between mt-2">
-          {task.dueDate && (
-            <span className={cn("text-sm", dueDateClassName)}>
-              Fecha: {format(task.dueDate, "PPP", { locale: es })}
-            </span>
-          )}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
