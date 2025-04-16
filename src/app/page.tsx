@@ -60,10 +60,25 @@ export default function Home() {
       return;
     }
 
-     if (!dueDate) {
-            setShowDateAlert(true);
-            return;
-        }
+    if (!dueDate) {
+      setShowDateAlert(true);
+      return;
+    }
+
+    // Check if a task with the same title already exists
+    const taskExists = [...pendingTasks, ...inProgressTasks, ...completedTasks].some(
+      (task) => task.title === newTaskTitle
+    );
+
+    if (taskExists) {
+      toast({
+        title: "Error!",
+        description: "Ya existe una tarea con este título. Por favor, elige otro.",
+        variant: "destructive"
+      });
+      return;
+    }
+
 
     const newTask: Task = {
       id: crypto.randomUUID(),
@@ -85,46 +100,33 @@ export default function Home() {
 
   const moveTask = (taskId: string, from: string, to: string) => {
     let taskToMove: Task | undefined;
-
-    // Helper function to remove a task from a list and return the task and the updated list
-    const removeTask = (tasks: Task[], setTask: (tasks: Task[]) => void): [Task | undefined, Task[]] => {
-      const taskIndex = tasks.findIndex(task => task.id === taskId);
-      if (taskIndex !== -1) {
-        const task = tasks[taskIndex];
-        const newTasks = [...tasks.slice(0, taskIndex), ...tasks.slice(taskIndex + 1)];
-        setTask(newTasks);
-        return [task, newTasks];
-      }
-      return [undefined, tasks];
-    };
-
-    // Remove the task from its current column
-    let updatedPendingTasks: Task[];
-    let updatedInProgressTasks: Task[];
-    let updatedCompletedTasks: Task[];
+    let updatedPendingTasks: Task[] = [...pendingTasks];
+    let updatedInProgressTasks: Task[] = [...inProgressTasks];
+    let updatedCompletedTasks: Task[] = [...completedTasks];
 
     if (from === 'Pendiente') {
-      [taskToMove, updatedPendingTasks] = removeTask(pendingTasks, setPendingTasks);
+      taskToMove = pendingTasks.find(task => task.id === taskId);
+      updatedPendingTasks = pendingTasks.filter(task => task.id !== taskId);
+      setPendingTasks(updatedPendingTasks);
     } else if (from === 'En Progreso') {
-      [taskToMove, updatedInProgressTasks] = removeTask(inProgressTasks, setInProgressTasks);
+      taskToMove = inProgressTasks.find(task => task.id === taskId);
+      updatedInProgressTasks = inProgressTasks.filter(task => task.id !== taskId);
+      setInProgressTasks(updatedInProgressTasks);
     } else if (from === 'Completada') {
-      [taskToMove, updatedCompletedTasks] = removeTask(completedTasks, setCompletedTasks);
+      taskToMove = completedTasks.find(task => task.id === taskId);
+      updatedCompletedTasks = completedTasks.filter(task => task.id !== taskId);
+      setCompletedTasks(updatedCompletedTasks);
     } else {
       return;
     }
 
     if (taskToMove) {
-      // Add the task to the new column
-      const addTask = (tasks: Task[], setTask: (tasks: Task[]) => void) => {
-        setTask([...tasks, taskToMove]);
-      };
-
       if (to === 'Pendiente') {
-        addTask(pendingTasks, setPendingTasks);
+        setPendingTasks([...updatedPendingTasks, taskToMove]);
       } else if (to === 'En Progreso') {
-        addTask(inProgressTasks, setInProgressTasks);
+        setInProgressTasks([...updatedInProgressTasks, taskToMove]);
       } else if (to === 'Completada') {
-        addTask(completedTasks, setCompletedTasks);
+        setCompletedTasks([...updatedCompletedTasks, taskToMove]);
       }
     }
 
@@ -231,21 +233,21 @@ export default function Home() {
             <Button onClick={handleAddTask} className="bg-teal-500 text-white rounded px-4 py-2">
               Agregar Tarea
             </Button>
-             <AlertDialog open={showDateAlert} onOpenChange={setShowDateAlert}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Falta la Fecha de Vencimiento</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Por favor, selecciona una fecha de vencimiento para la tarea.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setShowDateAlert(false)}>
-                                Ok
-                            </AlertDialogCancel>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+            <AlertDialog open={showDateAlert} onOpenChange={setShowDateAlert}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Falta la Fecha de Vencimiento</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Por favor, selecciona una fecha de vencimiento para la tarea.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setShowDateAlert(false)}>
+                    Ok
+                  </AlertDialogCancel>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <AlertDialog open={showAlert} onOpenChange={setShowAlert}>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -402,7 +404,7 @@ function KanbanColumn({
           <Accordion type="single" collapsible onValueChange={handleAccordionClick}>
             <AccordionItem value={columnId}>
               <AccordionTrigger>
-                {dropdownTitle}
+                {tasks.length}  {dropdownTitle}
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
