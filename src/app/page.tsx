@@ -278,7 +278,8 @@ export default function Home() {
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
             setSelectedTask={setSelectedTask}
-            dropdownTitle="Tarea Pendiente"
+            dropdownTitle="Tareas Pendientes"
+            tooltipText="Tareas por hacer"
           />
           <KanbanColumn
             title="En Progreso"
@@ -291,7 +292,8 @@ export default function Home() {
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
             setSelectedTask={setSelectedTask}
-            dropdownTitle="Tarea En Progreso"
+            dropdownTitle="Tareas En Progreso"
+            tooltipText="Tareas en ejecución"
           />
           <KanbanColumn
             title="Completada"
@@ -304,7 +306,8 @@ export default function Home() {
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
             setSelectedTask={setSelectedTask}
-            dropdownTitle="Tarea Completada"
+            dropdownTitle="Tareas Completadas"
+            tooltipText="Tareas finalizadas"
           />
         </div>
 
@@ -344,6 +347,7 @@ interface KanbanColumnProps {
   selectedColumn: string | null;
   setSelectedTask: (task: Task | null) => void;
   dropdownTitle: string;
+  tooltipText: string;
 }
 
 function KanbanColumn({
@@ -357,7 +361,8 @@ function KanbanColumn({
                           selectedTask,
                           selectedColumn,
                           setSelectedTask,
-                          dropdownTitle
+                          dropdownTitle,
+                          tooltipText
                         }: KanbanColumnProps) {
   const getColumnBackgroundColor = () => {
     switch (title) {
@@ -372,18 +377,6 @@ function KanbanColumn({
     }
   };
 
-  const getTooltipText = () => {
-    switch (title) {
-      case "Pendiente":
-        return "Tareas por hacer";
-      case "En Progreso":
-        return "Tareas en ejecución";
-      case "Completada":
-        return "Tareas finalizadas";
-      default:
-        return "";
-    }
-  };
 
   const handleAccordionClick = () => {
     // If the column is already selected, deselect it
@@ -411,7 +404,7 @@ function KanbanColumn({
                       {icon}
                     </TooltipTrigger>
                     <TooltipContent>
-                      {getTooltipText()}
+                      {tooltipText}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -578,3 +571,4 @@ function IconButton({onClick, icon, color, tooltipText}: IconButtonProps) {
     </TooltipProvider>
   );
 }
+
