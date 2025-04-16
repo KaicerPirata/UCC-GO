@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
+import {useToast} from "@/hooks/use-toast"
 
 interface Task {
   title: string;
@@ -37,6 +38,7 @@ export default function Home() {
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const [fromColumnToDelete, setFromColumnToDelete] = useState<string | null>(null);
   const [formattedDate, setFormattedDate] = useState('Escoge una fecha');
+  const { toast } = useToast()
 
   useEffect(() => {
     if (dueDate instanceof Date) {
@@ -58,35 +60,43 @@ export default function Home() {
       setNewTaskDescription('');
       setDueDate(undefined);
       setFormattedDate('Escoge una fecha');
+      toast({
+        title: "Tarea agregada!",
+        description: "Tarea agregada a Pendiente.",
+      })
     }
   };
 
   const moveTask = (taskTitle: string, from: string, to: string) => {
-    let taskToMove: Task | undefined;
-    let taskList: Task[] = [];
+      let taskToMove: Task | undefined;
+      let taskList: Task[] = [];
 
-    if (from === 'Pendiente') {
-      taskList = pendingTasks;
-      setPendingTasks(pendingTasks.filter(task => task.title !== taskTitle));
-    } else if (from === 'En Progreso') {
-      taskList = inProgressTasks;
-      setInProgressTasks(inProgressTasks.filter(task => task.title !== taskTitle));
-    } else if (from === 'Completada') {
-      taskList = completedTasks;
-      setCompletedTasks(completedTasks.filter(task => task.title !== taskTitle));
-    }
-
-    taskToMove = taskList.find(task => task.title === taskTitle);
-  
-    if (taskToMove) {
-      if (to === 'Pendiente') {
-        setPendingTasks([...pendingTasks, taskToMove]);
-      } else if (to === 'En Progreso') {
-        setInProgressTasks([...inProgressTasks, taskToMove]);
-      } else if (to === 'Completada') {
-        setCompletedTasks([...completedTasks, taskToMove]);
+      if (from === 'Pendiente') {
+          taskList = pendingTasks;
+          setPendingTasks(pendingTasks.filter(task => task.title !== taskTitle));
+      } else if (from === 'En Progreso') {
+          taskList = inProgressTasks;
+          setInProgressTasks(inProgressTasks.filter(task => task.title !== taskTitle));
+      } else if (from === 'Completada') {
+          taskList = completedTasks;
+          setCompletedTasks(completedTasks.filter(task => task.title !== taskTitle));
       }
-    };
+
+      taskToMove = taskList.find(task => task.title === taskTitle);
+
+      if (taskToMove) {
+          if (to === 'Pendiente') {
+              setPendingTasks([...pendingTasks, taskToMove]);
+          } else if (to === 'En Progreso') {
+              setInProgressTasks([...inProgressTasks, taskToMove]);
+          } else if (to === 'Completada') {
+              setCompletedTasks([...completedTasks, taskToMove]);
+          }
+      }
+       toast({
+        title: "Tarea movida!",
+        description: `Tarea movida de ${from} a ${to}.`,
+      })
   };
 
   const confirmDeleteTask = (taskTitle: string, from: string) => {
@@ -114,6 +124,10 @@ export default function Home() {
     setOpen(false);
     setTaskToDelete(null);
     setFromColumnToDelete(null);
+     toast({
+        title: "Tarea eliminada!",
+        description: "Tarea eliminada permanentemente.",
+      })
   };
 
 
@@ -329,6 +343,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
                 <IconButton
                   onClick={() => moveTask(task.title, from, 'Pendiente')}
                   icon={<Clock className="h-4 w-4"/>}
+                  color="bg-blue-500"
                 />
               </TooltipTrigger>
               <TooltipContent>
@@ -340,6 +355,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
                 <IconButton
                   onClick={() => moveTask(task.title, from, 'En Progreso')}
                   icon={<Settings className="h-4 w-4"/>}
+                  color="bg-yellow-500"
                 />
               </TooltipTrigger>
               <TooltipContent>
@@ -351,6 +367,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
                 <IconButton
                   onClick={() => moveTask(task.title, from, 'Completada')}
                   icon={<Check className="h-4 w-4"/>}
+                  color="bg-green-500"
                 />
               </TooltipTrigger>
               <TooltipContent>
@@ -362,6 +379,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
                 <IconButton
                   onClick={() => confirmDeleteTask(task.title, from)}
                   icon={<Trash2 className="h-4 w-4"/>}
+                  color="bg-red-500"
                 />
               </TooltipTrigger>
               <TooltipContent>
@@ -378,11 +396,12 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
 interface IconButtonProps {
   onClick?: () => void;
   icon: React.ReactNode;
+  color: string;
 }
 
-function IconButton({onClick, icon}: IconButtonProps) {
+function IconButton({onClick, icon, color}: IconButtonProps) {
   return (
-    <Button size="icon" variant="ghost" onClick={onClick}>
+    <Button size="icon" variant="ghost" onClick={onClick} className={color}>
       {icon}
     </Button>
   );
