@@ -10,7 +10,7 @@ import {format, differenceInDays, isPast} from "date-fns"
 import {es} from 'date-fns/locale';
 import {AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger} from '@/components/ui/alert-dialog';
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
-import {Check, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, Clock, Settings} from "lucide-react";
+import {Check, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, Clock} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -267,18 +267,11 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
 
   return (
     <Card className="bg-white rounded-md shadow-sm">
-      <CardContent>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="p-2 w-full justify-start">
-              {taskNumber}. {task.title}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56">
-            <DropdownMenuItem>{task.title}</DropdownMenuItem>
-            <DropdownMenuItem>{task.description}</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <CardContent className="flex flex-col">
+        <div className="bg-gray-200 p-1 text-center text-xs">
+          Título: {taskNumber}. {task.title}
+        </div>
+        
         <div className="flex justify-between mt-2">
           {task.dueDate && (
             <span className={cn("text-sm", dueDateClassName)}>
@@ -332,6 +325,9 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
             </Tooltip>
           </TooltipProvider>
         </div>
+        <div className="bg-gray-200 p-1 text-center text-xs mt-2">
+          Descripción: {task.description}
+        </div>
       </CardContent>
     </Card>
   );
@@ -349,4 +345,3 @@ function IconButton({onClick, icon}: IconButtonProps) {
     </Button>
   );
 }
-
