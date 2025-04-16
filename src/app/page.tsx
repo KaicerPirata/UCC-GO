@@ -8,6 +8,7 @@ import {Calendar} from "@/components/ui/calendar"
 import {cn} from "@/lib/utils"
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover"
 import {format} from "date-fns"
+import {es} from 'date-fns/locale';
 import {AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger} from '@/components/ui/alert-dialog';
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
 import {Check, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, Clock, Settings} from "lucide-react";
@@ -30,12 +31,13 @@ export default function Home() {
   const [formattedDate, setFormattedDate] = useState('Escoge una fecha');
 
   useEffect(() => {
-    if (dueDate instanceof Date) {
-      setFormattedDate(format(dueDate, "PPP", {locale: new (Intl.DateTimeFormat().constructor)('es')}));
+    if (dueDate instanceof Date && !isNaN(dueDate.getTime())) {
+      setFormattedDate(format(dueDate, "PPP", { locale: es }));
     } else {
       setFormattedDate('Escoge una fecha');
     }
   }, [dueDate]);
+
 
   const handleDateChange = (date: Date | undefined) => {
     setDueDate(date);
@@ -321,5 +323,3 @@ function IconButton({onClick, icon}: IconButtonProps) {
     </Button>
   );
 }
-
-
