@@ -38,6 +38,7 @@ export default function Home() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [showAlert, setShowAlert] = useState(false);
+  const [showDateAlert, setShowDateAlert] = useState(false);
 
 
   useEffect(() => {
@@ -58,6 +59,11 @@ export default function Home() {
       setShowAlert(true);
       return;
     }
+
+     if (!dueDate) {
+            setShowDateAlert(true);
+            return;
+        }
 
     const newTask: Task = {
       id: crypto.randomUUID(),
@@ -225,6 +231,21 @@ export default function Home() {
             <Button onClick={handleAddTask} className="bg-teal-500 text-white rounded px-4 py-2">
               Agregar Tarea
             </Button>
+             <AlertDialog open={showDateAlert} onOpenChange={setShowDateAlert}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Falta la Fecha de Vencimiento</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Por favor, selecciona una fecha de vencimiento para la tarea.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setShowDateAlert(false)}>
+                                Ok
+                            </AlertDialogCancel>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             <AlertDialog open={showAlert} onOpenChange={setShowAlert}>
               <AlertDialogContent>
                 <AlertDialogHeader>
