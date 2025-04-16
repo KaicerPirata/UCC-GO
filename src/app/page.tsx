@@ -119,9 +119,6 @@ export default function Home() {
                 mode="single"
                 selected={dueDate}
                 onSelect={handleDateChange}
-                disabled={(date) =>
-                  date > new Date()
-                }
                 initialFocus
               />
             </PopoverContent>
@@ -156,49 +153,6 @@ export default function Home() {
             confirmDeleteTask={confirmDeleteTask}
             columnId="Completada"
           />
-        </div>
-
-        <div className="flex space-x-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Trash2 className="h-4 w-4"/>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              Eliminar
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <ChevronLeft className="h-4 w-4"/>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              Pendiente
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Pencil className="h-4 w-4"/>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              En Progreso
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Check className="h-4 w-4"/>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              Completada
-            </TooltipContent>
-          </Tooltip>
         </div>
 
         <AlertDialog open={open} onOpenChange={setOpen}>
