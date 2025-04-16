@@ -68,15 +68,15 @@ export default function Home() {
     if (from === 'Pendiente') {
       taskToMove = pendingTasks.find(task => task.title === taskTitle);
       fromTaskList = pendingTasks;
-      setPendingTasks(pendingTasks.filter(task => task.title !== taskTitle));
+      setPendingTasks(pendingTasks.filter(task => task.title !== taskToDelete));
     } else if (from === 'En Progreso') {
       taskToMove = inProgressTasks.find(task => task.title === taskTitle);
       fromTaskList = inProgressTasks;
-      setInProgressTasks(inProgressTasks.filter(task => task.title !== taskTitle));
+      setInProgressTasks(inProgressTasks.filter(task => task.title !== taskToDelete));
     } else if (from === 'Completada') {
       taskToMove = completedTasks.find(task => task.title === taskTitle);
       fromTaskList = completedTasks;
-      setCompletedTasks(completedTasks.filter(task => task.title !== taskTitle));
+      setCompletedTasks(completedTasks.filter(task => task.title !== taskToDelete));
     }
 
     if (taskToMove) {
@@ -99,11 +99,16 @@ export default function Home() {
   const deleteTask = () => {
     if (!taskToDelete || !fromColumnToDelete) return;
 
+    let taskList: Task[] = [];
+
     if (fromColumnToDelete === 'Pendiente') {
+      taskList = pendingTasks;
       setPendingTasks(pendingTasks.filter(task => task.title !== taskToDelete));
     } else if (fromColumnToDelete === 'En Progreso') {
+      taskList = inProgressTasks;
       setInProgressTasks(inProgressTasks.filter(task => task.title !== taskToDelete));
     } else if (fromColumnToDelete === 'Completada') {
+      taskList = completedTasks;
       setCompletedTasks(completedTasks.filter(task => task.title !== taskToDelete));
     }
 
