@@ -30,7 +30,7 @@ export default function Home() {
   const [formattedDate, setFormattedDate] = useState('Escoge una fecha');
 
   useEffect(() => {
-    if (dueDate) {
+    if (dueDate instanceof Date) {
       setFormattedDate(format(dueDate, "PPP", {locale: new (Intl.DateTimeFormat().constructor)('es')}));
     } else {
       setFormattedDate('Escoge una fecha');
@@ -321,3 +321,4 @@ function IconButton({onClick, icon}: IconButtonProps) {
     </Button>
   );
 }
+
