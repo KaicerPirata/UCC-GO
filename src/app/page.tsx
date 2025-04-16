@@ -5,10 +5,12 @@ import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {suggestDueDate} from '@/ai/flows/suggest-due-date';
 import {Calendar} from "@/components/ui/calendar"
-import { cn } from "@/lib/utils"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { format } from "date-fns"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import {cn} from "@/lib/utils"
+import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover"
+import {format} from "date-fns"
+import {AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger} from '@/components/ui/alert-dialog';
+import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
+import {Check, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2} from "lucide-react";
 
 export default function Home() {
   const [pendingTasks, setPendingTasks] = useState<string[]>([]);
@@ -21,9 +23,9 @@ export default function Home() {
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const [fromColumnToDelete, setFromColumnToDelete] = useState<string | null>(null);
 
-    const handleDateChange = (date: Date | undefined) => {
-        setDueDate(date);
-    };
+  const handleDateChange = (date: Date | undefined) => {
+    setDueDate(date);
+  };
 
   const handleAddTask = async () => {
     if (newTaskDescription) {
@@ -37,7 +39,7 @@ export default function Home() {
         setSuggestedDueDate(aiSuggestion.suggestedDueDate);
       } catch (error) {
         console.error('Error getting AI suggestion:', error);
-        setSuggestedDueDate('Error getting suggestion');
+        setSuggestedDueDate('Error al obtener sugerencia');
       }
     }
   };
@@ -84,96 +86,142 @@ export default function Home() {
 
 
   return (
-    <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4">
-      <h1 className="text-2xl font-bold">Tablero Kanban de TaskFlow</h1>
+    <TooltipProvider>
+      <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4">
+        <h1 className="text-2xl font-bold">Tablero Kanban de TaskFlow</h1>
 
-      <div className="flex gap-4">
-        <input
-          type="text"
-          placeholder="Ingrese la descripción de la tarea"
-          value={newTaskDescription}
-          onChange={(e) => setNewTaskDescription(e.target.value)}
-          className="border rounded p-2 w-full"
-        />
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant={"outline"}
-              className={cn(
-                "w-[240px] justify-start text-left font-normal",
-                !dueDate && "text-muted-foreground"
-              )}
-            >
-              {dueDate ? (
-                format(dueDate, "PPP")
-              ) : (
-                <span>Escoge una fecha</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start" side="bottom">
-            <Calendar
-              mode="single"
-              selected={dueDate}
-              onSelect={handleDateChange}
-              disabled={(date) =>
-                date > new Date()
-              }
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
+        <div className="flex gap-4">
+          <input
+            type="text"
+            placeholder="Ingrese la descripción de la tarea"
+            value={newTaskDescription}
+            onChange={(e) => setNewTaskDescription(e.target.value)}
+            className="border rounded p-2 w-full"
+          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-[240px] justify-start text-left font-normal",
+                  !dueDate && "text-muted-foreground"
+                )}
+              >
+                {dueDate ? (
+                  format(dueDate, "PPP")
+                ) : (
+                  <span>Escoge una fecha</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start" side="bottom">
+              <Calendar
+                mode="single"
+                selected={dueDate}
+                onSelect={handleDateChange}
+                disabled={(date) =>
+                  date > new Date()
+                }
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
 
-        <Button onClick={handleAddTask} className="bg-teal-500 text-white rounded px-4 py-2">
-          Agregar Tarea
-        </Button>
-      </div>
+          <Button onClick={handleAddTask} className="bg-teal-500 text-white rounded px-4 py-2">
+            Agregar Tarea
+          </Button>
+        </div>
 
-      {suggestedDueDate && <p>Fecha de Vencimiento Sugerida: {suggestedDueDate}</p>}
+        {suggestedDueDate && <p>Fecha de Vencimiento Sugerida: {suggestedDueDate}</p>}
 
-      <div className="flex flex-wrap gap-4">
-        <KanbanColumn
-          title="Pendiente"
-          tasks={pendingTasks}
-          moveTask={moveTask}
-          confirmDeleteTask={confirmDeleteTask}
-          columnId="Pendiente"
-        />
-        <KanbanColumn
-          title="En Progreso"
-          tasks={inProgressTasks}
-          moveTask={moveTask}
-          confirmDeleteTask={confirmDeleteTask}
-          columnId="En Progreso"
-        />
-        <KanbanColumn
-          title="Completada"
-          tasks={completedTasks}
-          moveTask={moveTask}
-          confirmDeleteTask={confirmDeleteTask}
-          columnId="Completada"
-        />
-      </div>
-      <AlertDialog open={open} onOpenChange={setOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción eliminará la tarea permanentemente.
-              ¿Estás seguro de que quieres continuar?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setOpen(false)
-              setTaskToDelete(null)
-              setFromColumnToDelete(null)
-            }}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={deleteTask}>Eliminar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </main>
+        <div className="flex flex-wrap gap-4">
+          <KanbanColumn
+            title="Pendiente"
+            tasks={pendingTasks}
+            moveTask={moveTask}
+            confirmDeleteTask={confirmDeleteTask}
+            columnId="Pendiente"
+          />
+          <KanbanColumn
+            title="En Progreso"
+            tasks={inProgressTasks}
+            moveTask={moveTask}
+            confirmDeleteTask={confirmDeleteTask}
+            columnId="En Progreso"
+          />
+          <KanbanColumn
+            title="Completada"
+            tasks={completedTasks}
+            moveTask={moveTask}
+            confirmDeleteTask={confirmDeleteTask}
+            columnId="Completada"
+          />
+        </div>
+
+        <div className="flex space-x-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Trash2 className="h-4 w-4"/>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Eliminar
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <ChevronLeft className="h-4 w-4"/>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Pendiente
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Pencil className="h-4 w-4"/>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              En Progreso
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Check className="h-4 w-4"/>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Completada
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        <AlertDialog open={open} onOpenChange={setOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción eliminará la tarea permanentemente.
+                ¿Estás seguro de que quieres continuar?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setOpen(false)
+                setTaskToDelete(null)
+                setFromColumnToDelete(null)
+              }}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={deleteTask}>Eliminar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </main>
+    </TooltipProvider>
   );
 }
 
@@ -219,37 +267,55 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
       <CardContent>
         <p>{task}</p>
         <div className="flex justify-between mt-2">
-          <Button
-            size="sm"
-            onClick={() => moveTask(task, from, 'Pendiente')}
-            className="bg-teal-500 text-white rounded px-2 py-1"
-          >
-            Pendiente
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => moveTask(task, from, 'En Progreso')}
-            className="bg-teal-500 text-white rounded px-2 py-1"
-          >
-            En Progreso
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => moveTask(task, from, 'Completada')}
-            className="bg-teal-500 text-white rounded px-2 py-1"
-          >
-            Completada
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => confirmDeleteTask(task, from)}
-            className="rounded px-2 py-1"
-          >
-            Eliminar
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <IconButton onClick={() => moveTask(task, from, 'Pendiente')} icon={<ChevronLeft className="h-4 w-4"/>}/>
+              </TooltipTrigger>
+              <TooltipContent>
+                Mover a Pendiente
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <IconButton onClick={() => moveTask(task, from, 'En Progreso')} icon={<Pencil className="h-4 w-4"/>}/>
+              </TooltipTrigger>
+              <TooltipContent>
+                Mover a En Progreso
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <IconButton onClick={() => moveTask(task, from, 'Completada')} icon={<Check className="h-4 w-4"/>}/>
+              </TooltipTrigger>
+              <TooltipContent>
+                Mover a Completada
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <IconButton onClick={() => confirmDeleteTask(task, from)} icon={<Trash2 className="h-4 w-4"/>}/>
+              </TooltipTrigger>
+              <TooltipContent>
+                Eliminar Tarea
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+interface IconButtonProps {
+  onClick?: () => void;
+  icon: React.ReactNode;
+}
+
+function IconButton({onClick, icon}: IconButtonProps) {
+  return (
+    <Button size="icon" variant="ghost" onClick={onClick}>
+      {icon}
+    </Button>
   );
 }
