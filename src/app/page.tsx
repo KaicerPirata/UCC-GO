@@ -239,6 +239,7 @@ export default function Home() {
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
             setSelectedTask={setSelectedTask}
+            dropdownTitle="Tarea Pendiente"
           />
           <KanbanColumn
             title="En Progreso"
@@ -251,6 +252,7 @@ export default function Home() {
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
             setSelectedTask={setSelectedTask}
+            dropdownTitle="Tarea En Progreso"
           />
           <KanbanColumn
             title="Completada"
@@ -263,6 +265,7 @@ export default function Home() {
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
             setSelectedTask={setSelectedTask}
+            dropdownTitle="Tarea Completada"
           />
         </div>
 
@@ -301,6 +304,7 @@ interface KanbanColumnProps {
   selectedTask: Task | null;
   selectedColumn: string | null;
   setSelectedTask: (task: Task | null) => void;
+  dropdownTitle: string;
 }
 
 function KanbanColumn({
@@ -313,7 +317,8 @@ function KanbanColumn({
                           onTaskClick,
                           selectedTask,
                           selectedColumn,
-                          setSelectedTask
+                          setSelectedTask,
+                          dropdownTitle
                         }: KanbanColumnProps) {
   const getColumnBackgroundColor = () => {
     switch (title) {
@@ -373,7 +378,7 @@ function KanbanColumn({
       <CardContent className="flex flex-col gap-4">
         <Accordion type="single" collapsible onValueChange={handleAccordionClick}>
           <AccordionItem value={columnId}>
-            <AccordionTrigger>{title}</AccordionTrigger>
+            <AccordionTrigger>{dropdownTitle}</AccordionTrigger>
             <AccordionContent>
               {tasks.map((task, index) => {
                 const taskNumber = index + 1;
@@ -506,6 +511,3 @@ function IconButton({onClick, icon, color}: IconButtonProps) {
     </Button>
   );
 }
-
-
-
