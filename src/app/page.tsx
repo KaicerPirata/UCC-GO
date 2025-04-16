@@ -8,6 +8,7 @@ import {Calendar} from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export default function Home() {
   const [pendingTasks, setPendingTasks] = useState<string[]>([]);
@@ -16,6 +17,9 @@ export default function Home() {
   const [newTaskDescription, setNewTaskDescription] = useState<string>('');
   const [suggestedDueDate, setSuggestedDueDate] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
+  const [open, setOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  const [fromColumnToDelete, setFromColumnToDelete] = useState<string | null>(null);
 
     const handleDateChange = (date: Date | undefined) => {
         setDueDate(date);
@@ -55,6 +59,29 @@ export default function Home() {
       setCompletedTasks([...completedTasks, task]);
     }
   };
+
+  const confirmDeleteTask = (task: string, from: string) => {
+    setTaskToDelete(task);
+    setFromColumnToDelete(from);
+    setOpen(true);
+  };
+
+  const deleteTask = () => {
+    if (!taskToDelete || !fromColumnToDelete) return;
+
+    if (fromColumnToDelete === 'Pendiente') {
+      setPendingTasks(pendingTasks.filter((t) => t !== taskToDelete));
+    } else if (fromColumnToDelete === 'En Progreso') {
+      setInProgressTasks(inProgressTasks.filter((t) => t !== taskToDelete));
+    } else if (fromColumnToDelete === 'Completada') {
+      setCompletedTasks(completedTasks.filter((t) => t !== taskToDelete));
+    }
+
+    setOpen(false);
+    setTaskToDelete(null);
+    setFromColumnToDelete(null);
+  };
+
 
   return (
     <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4">
@@ -109,21 +136,43 @@ export default function Home() {
           title="Pendiente"
           tasks={pendingTasks}
           moveTask={moveTask}
+          confirmDeleteTask={confirmDeleteTask}
           columnId="Pendiente"
         />
         <KanbanColumn
           title="En Progreso"
           tasks={inProgressTasks}
           moveTask={moveTask}
+          confirmDeleteTask={confirmDeleteTask}
           columnId="En Progreso"
         />
         <KanbanColumn
           title="Completada"
           tasks={completedTasks}
           moveTask={moveTask}
+          confirmDeleteTask={confirmDeleteTask}
           columnId="Completada"
         />
       </div>
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará la tarea permanentemente.
+              ¿Estás seguro de que quieres continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setOpen(false)
+              setTaskToDelete(null)
+              setFromColumnToDelete(null)
+            }}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteTask}>Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }
@@ -132,10 +181,11 @@ interface KanbanColumnProps {
   title: string;
   tasks: string[];
   moveTask: (task: string, from: string, to: string) => void;
+  confirmDeleteTask: (task: string, from: string) => void;
   columnId: string;
 }
 
-function KanbanColumn({title, tasks, moveTask, columnId}: KanbanColumnProps) {
+function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId}: KanbanColumnProps) {
   return (
     <Card className="w-80 bg-gray-100 rounded-md shadow-sm">
       <CardHeader>
@@ -147,6 +197,7 @@ function KanbanColumn({title, tasks, moveTask, columnId}: KanbanColumnProps) {
             key={index}
             task={task}
             moveTask={moveTask}
+            confirmDeleteTask={confirmDeleteTask}
             from={columnId}
           />
         ))}
@@ -158,10 +209,11 @@ function KanbanColumn({title, tasks, moveTask, columnId}: KanbanColumnProps) {
 interface TaskCardProps {
   task: string;
   moveTask: (task: string, from: string, to: string) => void;
+  confirmDeleteTask: (task: string, from: string) => void;
   from: string;
 }
 
-function TaskCard({task, moveTask, from}: TaskCardProps) {
+function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
   return (
     <Card className="bg-white rounded-md shadow-sm">
       <CardContent>
@@ -188,9 +240,16 @@ function TaskCard({task, moveTask, from}: TaskCardProps) {
           >
             Completada
           </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => confirmDeleteTask(task, from)}
+            className="rounded px-2 py-1"
+          >
+            Eliminar
+          </Button>
         </div>
       </CardContent>
     </Card>
   );
 }
-
