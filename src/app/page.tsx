@@ -95,6 +95,7 @@ export default function Home() {
   };
 
   const moveTask = (taskId: string, from: string, to: string) => {
+
     let taskToMove: Task | undefined;
     let updatedPendingTasks: Task[] = [...pendingTasks];
     let updatedInProgressTasks: Task[] = [...inProgressTasks];
