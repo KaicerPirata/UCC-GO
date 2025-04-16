@@ -3,15 +3,14 @@
 import {useState, useEffect} from 'react';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
-import {suggestDueDate} from '@/ai/flows/suggest-due-date';
 import {Calendar} from "@/components/ui/calendar"
 import {cn} from "@/lib/utils"
 import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover"
-import {format} from "date-fns"
+import {format, differenceInDays, isPast} from "date-fns"
 import {es} from 'date-fns/locale';
 import {AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger} from '@/components/ui/alert-dialog';
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
-import {Check, ChevronLeft, ChevronRight, Loader2, Trash2, Clock, Settings} from "lucide-react";
+import {Check, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, Clock, Settings} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,10 +18,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
+interface Task {
+  description: string;
+  dueDate?: Date;
+}
+
 export default function Home() {
-  const [pendingTasks, setPendingTasks] = useState<string[]>([]);
-  const [inProgressTasks, setInProgressTasks] = useState<string[]>([]);
-  const [completedTasks, setCompletedTasks] = useState<string[]>([]);
+  const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
+  const [inProgressTasks, setInProgressTasks] = useState<Task[]>([]);
+  const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
   const [newTaskDescription, setNewTaskDescription] = useState<string>('');
   const [dueDate, setDueDate] = useState<Date | undefined>();
   const [open, setOpen] = useState(false);
@@ -45,31 +49,44 @@ export default function Home() {
 
   const handleAddTask = async () => {
     if (newTaskDescription) {
-      setPendingTasks([...pendingTasks, newTaskDescription]);
+      setPendingTasks([...pendingTasks, {description: newTaskDescription, dueDate: dueDate}]);
       setNewTaskDescription('');
+      setDueDate(undefined);
+      setFormattedDate('Escoge una fecha');
     }
   };
 
-  const moveTask = (task: string, from: string, to: string) => {
+  const moveTask = (taskDescription: string, from: string, to: string) => {
+    let taskToMove: Task | undefined;
+    let fromTaskList: Task[] = [];
+
     if (from === 'Pendiente') {
-      setPendingTasks(pendingTasks.filter((t) => t !== task));
+      taskToMove = pendingTasks.find(task => task.description === taskDescription);
+      fromTaskList = pendingTasks;
+      setPendingTasks(pendingTasks.filter(task => task.description !== taskDescription));
     } else if (from === 'En Progreso') {
-      setInProgressTasks(inProgressTasks.filter((t) => t !== task));
+      taskToMove = inProgressTasks.find(task => task.description === taskDescription);
+      fromTaskList = inProgressTasks;
+      setInProgressTasks(inProgressTasks.filter(task => task.description !== taskDescription));
     } else if (from === 'Completada') {
-      setCompletedTasks(completedTasks.filter((t) => t !== task));
+      taskToMove = completedTasks.find(task => task.description === taskDescription);
+      fromTaskList = completedTasks;
+      setCompletedTasks(completedTasks.filter(task => task.description !== taskDescription));
     }
 
-    if (to === 'Pendiente') {
-      setPendingTasks([...pendingTasks, task]);
-    } else if (to === 'En Progreso') {
-      setInProgressTasks([...inProgressTasks, task]);
-    } else if (to === 'Completada') {
-      setCompletedTasks([...completedTasks, task]);
+    if (taskToMove) {
+      if (to === 'Pendiente') {
+        setPendingTasks([...pendingTasks, taskToMove]);
+      } else if (to === 'En Progreso') {
+        setInProgressTasks([...inProgressTasks, taskToMove]);
+      } else if (to === 'Completada') {
+        setCompletedTasks([...completedTasks, taskToMove]);
+      }
     }
   };
 
-  const confirmDeleteTask = (task: string, from: string) => {
-    setTaskToDelete(task);
+  const confirmDeleteTask = (taskDescription: string, from: string) => {
+    setTaskToDelete(taskDescription);
     setFromColumnToDelete(from);
     setOpen(true);
   };
@@ -78,11 +95,11 @@ export default function Home() {
     if (!taskToDelete || !fromColumnToDelete) return;
 
     if (fromColumnToDelete === 'Pendiente') {
-      setPendingTasks(pendingTasks.filter((t) => t !== taskToDelete));
+      setPendingTasks(pendingTasks.filter(task => task.description !== taskToDelete));
     } else if (fromColumnToDelete === 'En Progreso') {
-      setInProgressTasks(inProgressTasks.filter((t) => t !== taskToDelete));
+      setInProgressTasks(inProgressTasks.filter(task => task.description !== taskToDelete));
     } else if (fromColumnToDelete === 'Completada') {
-      setCompletedTasks(completedTasks.filter((t) => t !== taskToDelete));
+      setCompletedTasks(completedTasks.filter(task => task.description !== taskToDelete));
     }
 
     setOpen(false);
@@ -124,6 +141,7 @@ export default function Home() {
                 initialFocus
                 fromMonth={new Date()}
                 defaultMonth={new Date()}
+                
               />
             </PopoverContent>
           </Popover>
@@ -183,9 +201,9 @@ export default function Home() {
 
 interface KanbanColumnProps {
   title: string;
-  tasks: string[];
-  moveTask: (task: string, from: string, to: string) => void;
-  confirmDeleteTask: (task: string, from: string) => void;
+  tasks: Task[];
+  moveTask: (taskDescription: string, from: string, to: string) => void;
+  confirmDeleteTask: (taskDescription: string, from: string) => void;
   columnId: string;
 }
 
@@ -225,33 +243,42 @@ function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId}: Kan
 }
 
 interface TaskCardProps {
-  task: string;
-  moveTask: (task: string, from: string, to: string) => void;
-  confirmDeleteTask: (task: string, from: string) => void;
+  task: Task;
+  moveTask: (taskDescription: string, from: string, to: string) => void;
+  confirmDeleteTask: (taskDescription: string, from: string) => void;
   from: string;
   taskNumber: number;
 }
 
 function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCardProps) {
+  const isCloseToDueDate = task.dueDate ? differenceInDays(task.dueDate, new Date()) <= 3 : false;
+  const isOverdue = task.dueDate ? isPast(task.dueDate) : false;
+  const dueDateClassName = (isCloseToDueDate || isOverdue) ? 'text-red-500' : '';
+
   return (
     <Card className="bg-white rounded-md shadow-sm">
       <CardContent>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="p-2 w-full justify-start">
-              {taskNumber}. {task}
+              {taskNumber}. {task.description}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56">
-            <DropdownMenuItem>{task}</DropdownMenuItem>
+            <DropdownMenuItem>{task.description}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <div className="flex justify-between mt-2">
+          {task.dueDate && (
+            <span className={cn("text-sm", dueDateClassName)}>
+              Fecha: {format(task.dueDate, "PPP", { locale: es })}
+            </span>
+          )}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <IconButton
-                  onClick={() => moveTask(task, from, 'Pendiente')}
+                  onClick={() => moveTask(task.description, from, 'Pendiente')}
                   icon={<Clock className="h-4 w-4"/>}
                 />
               </TooltipTrigger>
@@ -262,7 +289,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
             <Tooltip>
               <TooltipTrigger asChild>
                 <IconButton
-                  onClick={() => moveTask(task, from, 'En Progreso')}
+                  onClick={() => moveTask(task.description, from, 'En Progreso')}
                   icon={<Settings className="h-4 w-4"/>}
                 />
               </TooltipTrigger>
@@ -273,7 +300,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
             <Tooltip>
               <TooltipTrigger asChild>
                 <IconButton
-                  onClick={() => moveTask(task, from, 'Completada')}
+                  onClick={() => moveTask(task.description, from, 'Completada')}
                   icon={<Check className="h-4 w-4"/>}
                 />
               </TooltipTrigger>
@@ -284,7 +311,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
             <Tooltip>
               <TooltipTrigger asChild>
                 <IconButton
-                  onClick={() => confirmDeleteTask(task, from)}
+                  onClick={() => confirmDeleteTask(task.description, from)}
                   icon={<Trash2 className="h-4 w-4"/>}
                 />
               </TooltipTrigger>
@@ -311,4 +338,3 @@ function IconButton({onClick, icon}: IconButtonProps) {
     </Button>
   );
 }
-
