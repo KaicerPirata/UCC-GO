@@ -39,6 +39,7 @@ export default function Home() {
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [showAlert, setShowAlert] = useState(false);
   const [showDateAlert, setShowDateAlert] = useState(false);
+  const [showDuplicateTaskAlert, setShowDuplicateTaskAlert] = useState(false);
 
 
   useEffect(() => {
@@ -71,11 +72,7 @@ export default function Home() {
     );
 
     if (taskExists) {
-      toast({
-        title: "Error!",
-        description: "Ya existe una tarea con este título. Por favor, elige otro.",
-        variant: "destructive"
-      });
+      setShowDuplicateTaskAlert(true);
       return;
     }
 
@@ -231,7 +228,7 @@ export default function Home() {
             </Popover>
 
             <Button onClick={handleAddTask} className="bg-teal-500 text-white rounded px-4 py-2">
-              Agregar Tarea
+              Añadir Tarea
             </Button>
             <AlertDialog open={showDateAlert} onOpenChange={setShowDateAlert}>
               <AlertDialogContent>
@@ -258,6 +255,21 @@ export default function Home() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel onClick={() => setShowAlert(false)}>
+                    Ok
+                  </AlertDialogCancel>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog open={showDuplicateTaskAlert} onOpenChange={setShowDuplicateTaskAlert}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Tarea Duplicada</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Ya existe una tarea con este título. Por favor, elige un título diferente.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setShowDuplicateTaskAlert(false)}>
                     Ok
                   </AlertDialogCancel>
                 </AlertDialogFooter>
@@ -571,4 +583,6 @@ function IconButton({onClick, icon, color, tooltipText}: IconButtonProps) {
     </TooltipProvider>
   );
 }
+
+
 
