@@ -24,7 +24,6 @@ export default function Home() {
   const [inProgressTasks, setInProgressTasks] = useState<string[]>([]);
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
   const [newTaskDescription, setNewTaskDescription] = useState<string>('');
-  const [suggestedDueDate, setSuggestedDueDate] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState<Date | undefined>();
   const [open, setOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
@@ -48,16 +47,6 @@ export default function Home() {
     if (newTaskDescription) {
       setPendingTasks([...pendingTasks, newTaskDescription]);
       setNewTaskDescription('');
-
-      try {
-        const aiSuggestion = await suggestDueDate({
-          taskDescription: newTaskDescription,
-        });
-        setSuggestedDueDate(aiSuggestion.suggestedDueDate);
-      } catch (error) {
-        console.error('Error al obtener sugerencia:', error);
-        setSuggestedDueDate('Error al obtener sugerencia');
-      }
     }
   };
 
@@ -143,8 +132,6 @@ export default function Home() {
             Agregar Tarea
           </Button>
         </div>
-
-        {suggestedDueDate && <p>Fecha de Vencimiento Sugerida: {suggestedDueDate}</p>}
 
         <div className="flex flex-wrap gap-4">
           <KanbanColumn
@@ -324,3 +311,4 @@ function IconButton({onClick, icon}: IconButtonProps) {
     </Button>
   );
 }
+
