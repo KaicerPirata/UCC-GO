@@ -15,7 +15,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
 export default function Home() {
@@ -24,11 +23,11 @@ export default function Home() {
   const [completedTasks, setCompletedTasks] = useState<string[]>([]);
   const [newTaskDescription, setNewTaskDescription] = useState<string>('');
   const [suggestedDueDate, setSuggestedDueDate] = useState<string | null>(null);
-  const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
+  const [dueDate, setDueDate] = useState<Date | undefined>();
   const [open, setOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const [fromColumnToDelete, setFromColumnToDelete] = useState<string | null>(null);
-  const [formattedDate, setFormattedDate] = useState('');
+  const [formattedDate, setFormattedDate] = useState('Escoge una fecha');
 
   useEffect(() => {
     if (dueDate) {
