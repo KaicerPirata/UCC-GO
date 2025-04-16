@@ -1,7 +1,7 @@
 'use client';
 
 import {useState, useEffect} from 'react';
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {Card, CardContent, CardHeader} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {Calendar} from "@/components/ui/calendar"
 import {cn} from "@/lib/utils"
@@ -15,6 +15,7 @@ import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {useToast} from "@/hooks/use-toast"
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
+import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
 
 interface Task {
   id: string;
@@ -41,7 +42,6 @@ export default function Home() {
   const [showDateAlert, setShowDateAlert] = useState(false);
   const [showDuplicateTaskAlert, setShowDuplicateTaskAlert] = useState(false);
 
-
   useEffect(() => {
     if (dueDate instanceof Date) {
       setFormattedDate(format(dueDate, "PPP", {locale: es}));
@@ -66,7 +66,6 @@ export default function Home() {
       return;
     }
 
-    // Check if a task with the same title already exists
     const taskExists = [...pendingTasks, ...inProgressTasks, ...completedTasks].some(
       (task) => task.title === newTaskTitle
     );
@@ -182,26 +181,37 @@ export default function Home() {
   return (
     <TooltipProvider>
       <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4">
-        <h1 className="text-2xl font-bold">Tablero Kanban de TaskFlow</h1>
+        <h1 className="text-3xl font-bold text-center mb-8">Tablero Kanban de TaskFlow</h1>
 
-        <div className="flex flex-col gap-2">
-          <div>Título:</div>
-          <Input
-            type="text"
-            placeholder="Ingrese el título de la tarea"
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            className="border rounded p-2 w-full"
-          />
-          <div>Descripción:</div>
-          <Textarea
-            placeholder="Ingrese la descripción de la tarea"
-            value={newTaskDescription}
-            onChange={(e) => setNewTaskDescription(e.target.value)}
-            className="border rounded p-2 w-full"
-          />
+        <div className="flex flex-col gap-4">
+          <div className="mb-2">
+            <label htmlFor="newTaskTitle" className="block text-sm font-medium text-gray-700">
+              Título de la tarea:
+            </label>
+            <Input
+              type="text"
+              id="newTaskTitle"
+              placeholder="Ingresa el título de la tarea"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              className="mt-1 shadow-sm focus:ring-teal-500 focus:border-teal-500 block w-full sm:text-sm border-gray-300 rounded-md"
+            />
+          </div>
 
-          <div className="flex items-center gap-2">
+          <div className="mb-2">
+            <label htmlFor="newTaskDescription" className="block text-sm font-medium text-gray-700">
+              Descripción de la tarea:
+            </label>
+            <Textarea
+              id="newTaskDescription"
+              placeholder="Ingresa la descripción de la tarea"
+              value={newTaskDescription}
+              onChange={(e) => setNewTaskDescription(e.target.value)}
+              className="mt-1 shadow-sm focus:ring-teal-500 focus:border-teal-500 block w-full sm:text-sm border-gray-300 rounded-md"
+            />
+          </div>
+
+          <div className="flex items-center gap-4">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -222,14 +232,14 @@ export default function Home() {
                   initialFocus
                   fromMonth={new Date()}
                   defaultMonth={new Date()}
-
                 />
               </PopoverContent>
             </Popover>
 
-            <Button onClick={handleAddTask} className="bg-teal-500 text-white rounded px-4 py-2">
+            <Button onClick={handleAddTask} className="bg-teal-500 text-white rounded px-4 py-2 hover:bg-teal-700">
               Añadir Tarea
             </Button>
+
             <AlertDialog open={showDateAlert} onOpenChange={setShowDateAlert}>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -245,6 +255,7 @@ export default function Home() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+
             <AlertDialog open={showAlert} onOpenChange={setShowAlert}>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -260,6 +271,7 @@ export default function Home() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+
             <AlertDialog open={showDuplicateTaskAlert} onOpenChange={setShowDuplicateTaskAlert}>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -278,7 +290,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <KanbanColumn
             title="Pendiente"
             tasks={pendingTasks}
@@ -391,25 +403,23 @@ function KanbanColumn({
 
 
   const handleAccordionClick = () => {
-    // If the column is already selected, deselect it
     if (selectedColumn === columnId) {
       setSelectedTask(null);
       return;
     }
-    // If a task is selected in a different column, clear it
     if (selectedTask) {
       setSelectedTask(null);
     }
   };
 
   return (
-    <Card className={`w-80 rounded-md shadow-sm ${getColumnBackgroundColor()}`}>
+    <Card className={`w-80 rounded-md shadow-sm ${getColumnBackgroundColor()} hover:shadow-lg transition-shadow duration-300`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-md font-medium flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Accordion type="single" collapsible onValueChange={handleAccordionClick}>
             <AccordionItem value={columnId}>
-              <AccordionTrigger>
-                {tasks.length}  {dropdownTitle}
+              <AccordionTrigger className="text-md font-medium flex items-center gap-2 hover:underline">
+                {title}
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -427,29 +437,24 @@ function KanbanColumn({
                     Agrega tareas a esta sección.
                   </div>
                 ) : (
-                  tasks.map((task, index) => {
-                    const taskNumber = index + 1;
-                    return (
-                      <div key={task.id} className="mb-2">
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-start"
-                          onClick={() => onTaskClick(task, columnId)}
-                        >
-                          {taskNumber}. {task.title}
-                        </Button>
-                      </div>
-                    );
-                  })
+                  tasks.map((task, index) => (
+                    <div key={task.id} className="mb-2">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start hover:bg-teal-50"
+                        onClick={() => onTaskClick(task, columnId)}
+                      >
+                        {index + 1}. {task.title}
+                      </Button>
+                    </div>
+                  ))
                 )}
               </AccordionContent>
             </AccordionItem>
           </Accordion>
-        </CardTitle>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-
-
         {selectedTask && selectedColumn === columnId && (
           <TaskCard
             task={selectedTask}
@@ -476,35 +481,34 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
   const dueDateClassName = (isCloseToDueDate || isOverdue) ? 'text-red-500' : '';
 
   return (
-    <Card className="bg-white rounded-md shadow-sm">
+    <Card className="bg-white rounded-md shadow-sm hover:shadow-md transition-shadow duration-300">
       <CardContent className="flex flex-col">
         <div className="text-xs">
-          Título: {task.title}
+          <strong>Título:</strong> {task.title}
         </div>
         <div className="text-xs">
-          Descripción: {task.description}
+          <strong>Descripción:</strong> {task.description}
         </div>
         {task.dueDate && (
           <span className={cn("text-sm", dueDateClassName)}>
-            Fecha: {task.dueDate ? format(task.dueDate, "PPP", {locale: es}) : 'Sin fecha'}
+            <strong>Fecha:</strong> {task.dueDate ? format(task.dueDate, "PPP", {locale: es}) : 'Sin fecha'}
           </span>
         )}
-
-
       </CardContent>
       <CardContent>
-        <div className="flex justify-between mt-2">
+        <div className="flex justify-around mt-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                {from !== 'Pendiente' && (
-                  <IconButton
-                    onClick={() => moveTask(task.id, from, 'Pendiente')}
-                    icon={<Clock className="h-4 w-4"/>}
-                    color="bg-blue-500"
-                    tooltipText="Mover a Pendiente"
-                  />
-                )}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => moveTask(task.id, from, 'Pendiente')}
+                  className={cn(from === 'Pendiente' ? 'hidden' : 'bg-blue-500 hover:bg-blue-700 text-white')}
+                  disabled={from === 'Pendiente'}
+                >
+                  <Clock className="h-4 w-4"/>
+                </Button>
               </TooltipTrigger>
               <TooltipContent>
                 Mover a Pendiente
@@ -512,14 +516,15 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                {from !== 'En Progreso' && (
-                  <IconButton
-                    onClick={() => moveTask(task.id, from, 'En Progreso')}
-                    icon={<Settings className="h-4 w-4"/>}
-                    color="bg-yellow-500"
-                    tooltipText="Mover a En Progreso"
-                  />
-                )}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => moveTask(task.id, from, 'En Progreso')}
+                  className={cn(from === 'En Progreso' ? 'hidden' : 'bg-yellow-500 hover:bg-yellow-700 text-white')}
+                  disabled={from === 'En Progreso'}
+                >
+                  <Settings className="h-4 w-4"/>
+                </Button>
               </TooltipTrigger>
               <TooltipContent>
                 Mover a En Progreso
@@ -527,14 +532,15 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                {from !== 'Completada' && (
-                  <IconButton
-                    onClick={() => moveTask(task.id, from, 'Completada')}
-                    icon={<Check className="h-4 w-4"/>}
-                    color="bg-green-500"
-                    tooltipText="Mover a Completada"
-                  />
-                )}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => moveTask(task.id, from, 'Completada')}
+                  className={cn(from === 'Completada' ? 'hidden' : 'bg-green-500 hover:bg-green-700 text-white')}
+                  disabled={from === 'Completada'}
+                >
+                  <Check className="h-4 w-4"/>
+                </Button>
               </TooltipTrigger>
               <TooltipContent>
                 Mover a Completada
@@ -542,12 +548,14 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <IconButton
+                <Button
+                  size="icon"
+                  variant="ghost"
                   onClick={() => confirmDeleteTask(task.id, from)}
-                  icon={<Trash2 className="h-4 w-4"/>}
-                  color="bg-red-500"
-                  tooltipText="Eliminar Tarea"
-                />
+                  className="bg-red-500 hover:bg-red-700 text-white"
+                >
+                  <Trash2 className="h-4 w-4"/>
+                </Button>
               </TooltipTrigger>
               <TooltipContent>
                 Eliminar Tarea
@@ -559,30 +567,3 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
     </Card>
   );
 }
-
-interface IconButtonProps {
-  onClick?: () => void;
-  icon: React.ReactNode;
-  color: string;
-  tooltipText: string;
-}
-
-function IconButton({onClick, icon, color, tooltipText}: IconButtonProps) {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button size="icon" variant="ghost" onClick={onClick} className={color}>
-            {icon}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          {tooltipText}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
-
-
