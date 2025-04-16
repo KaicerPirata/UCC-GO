@@ -10,18 +10,14 @@ import {format, differenceInDays, isPast} from "date-fns"
 import {es} from 'date-fns/locale';
 import {AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger} from '@/components/ui/alert-dialog';
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
-import {Check, ChevronLeft, ChevronRight, Loader2, Trash2, Clock, Settings} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import {Check, Clock, Settings, Trash2} from "lucide-react";
 import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {useToast} from "@/hooks/use-toast"
+import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
 
 interface Task {
+  id: string;
   title: string;
   description: string;
   dueDate?: Date;
@@ -39,6 +35,9 @@ export default function Home() {
   const [fromColumnToDelete, setFromColumnToDelete] = useState<string | null>(null);
   const [formattedDate, setFormattedDate] = useState('Escoge una fecha');
   const { toast } = useToast()
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
+
 
   useEffect(() => {
     if (dueDate instanceof Date) {
@@ -55,7 +54,13 @@ export default function Home() {
 
   const handleAddTask = async () => {
     if (newTaskTitle && newTaskDescription) {
-      setPendingTasks([...pendingTasks, { title: newTaskTitle, description: newTaskDescription, dueDate: dueDate}]);
+      const newTask: Task = {
+        id: crypto.randomUUID(),
+        title: newTaskTitle,
+        description: newTaskDescription,
+        dueDate: dueDate
+      };
+      setPendingTasks([...pendingTasks, newTask]);
       setNewTaskTitle('');
       setNewTaskDescription('');
       setDueDate(undefined);
@@ -67,40 +72,62 @@ export default function Home() {
     }
   };
 
-  const moveTask = (taskTitle: string, from: string, to: string) => {
+  const moveTask = (taskId: string, from: string, to: string) => {
     let taskToMove: Task | undefined;
-    let taskList: Task[] = [];
 
+    // Helper function to remove a task from a list and return the task and the updated list
+    const removeTask = (tasks: Task[], setTask: (tasks: Task[]) => void): [Task | undefined, Task[]] => {
+      const taskIndex = tasks.findIndex(task => task.id === taskId);
+      if (taskIndex !== -1) {
+        const task = tasks[taskIndex];
+        const newTasks = [...tasks.slice(0, taskIndex), ...tasks.slice(taskIndex + 1)];
+        setTask(newTasks);
+        return [task, newTasks];
+      }
+      return [undefined, tasks];
+    };
+
+    // Remove the task from its current column
     if (from === 'Pendiente') {
-      taskList = pendingTasks;
-      setPendingTasks(pendingTasks.filter(task => task.title !== taskTitle));
+      let updatedPendingTasks: Task[];
+      [taskToMove, updatedPendingTasks] = removeTask(pendingTasks, setPendingTasks);
+      setPendingTasks(updatedPendingTasks)
     } else if (from === 'En Progreso') {
-      taskList = inProgressTasks;
-      setInProgressTasks(inProgressTasks.filter(task => task.title !== taskTitle));
+      let updatedInProgressTasks: Task[];
+      [taskToMove, updatedInProgressTasks] = removeTask(inProgressTasks, setInProgressTasks);
+      setInProgressTasks(updatedInProgressTasks)
     } else if (from === 'Completada') {
-      taskList = completedTasks;
-      setCompletedTasks(completedTasks.filter(task => task.title !== taskTitle));
+      let updatedCompletedTasks: Task[];
+      [taskToMove, updatedCompletedTasks] = removeTask(completedTasks, setCompletedTasks);
+      setCompletedTasks(updatedCompletedTasks)
     }
-
-    taskToMove = taskList.find(task => task.title === taskTitle);
 
     if (taskToMove) {
+      // Add the task to the new column
+      const addTask = (tasks: Task[], setTask: (tasks: Task[]) => void) => {
+        setTask([...tasks, taskToMove]);
+      };
+
       if (to === 'Pendiente') {
-        setPendingTasks([...pendingTasks, taskToMove]);
+        addTask(pendingTasks, setPendingTasks);
       } else if (to === 'En Progreso') {
-        setInProgressTasks([...inProgressTasks, taskToMove]);
+        addTask(inProgressTasks, setInProgressTasks);
       } else if (to === 'Completada') {
-        setCompletedTasks([...completedTasks, taskToMove]);
+        addTask(completedTasks, setCompletedTasks);
       }
     }
+
+    //Deselecciona la tarea
+    setSelectedTask(null)
+
     toast({
       title: "Tarea movida!",
       description: `Tarea movida de ${from} a ${to}.`,
     })
   };
 
-  const confirmDeleteTask = (taskTitle: string, from: string) => {
-    setTaskToDelete(taskTitle);
+  const confirmDeleteTask = (taskId: string, from: string) => {
+    setTaskToDelete(taskId);
     setFromColumnToDelete(from);
     setOpen(true);
   };
@@ -109,25 +136,39 @@ export default function Home() {
     if (!taskToDelete || !fromColumnToDelete) return;
 
     let taskList: Task[] = [];
+    let setTask: (tasks: Task[]) => void;
 
     if (fromColumnToDelete === 'Pendiente') {
       taskList = pendingTasks;
-      setPendingTasks(pendingTasks.filter(task => task.title !== taskToDelete));
+      setTask = setPendingTasks;
     } else if (fromColumnToDelete === 'En Progreso') {
       taskList = inProgressTasks;
-      setInProgressTasks(inProgressTasks.filter(task => task.title !== taskToDelete));
+      setTask = setInProgressTasks;
     } else if (fromColumnToDelete === 'Completada') {
       taskList = completedTasks;
-      setCompletedTasks(completedTasks.filter(task => task.title !== taskToDelete));
+      setTask = setCompletedTasks;
+    } else {
+      return; // Invalid column
     }
+
+    const updatedTaskList = taskList.filter(task => task.id !== taskToDelete);
+    setTask(updatedTaskList);
 
     setOpen(false);
     setTaskToDelete(null);
     setFromColumnToDelete(null);
+
+    //Deselecciona la tarea
+    setSelectedTask(null)
     toast({
       title: "Tarea eliminada!",
       description: "Tarea eliminada permanentemente.",
     })
+  };
+
+  const handleTaskClick = (task: Task, columnId: string) => {
+      setSelectedTask(task);
+      setSelectedColumn(columnId);
   };
 
 
@@ -193,6 +234,10 @@ export default function Home() {
             confirmDeleteTask={confirmDeleteTask}
             columnId="Pendiente"
             icon={<Clock className="h-4 w-4"/>}
+            onTaskClick={handleTaskClick}
+            selectedTask={selectedTask}
+            selectedColumn={selectedColumn}
+            setSelectedTask={setSelectedTask}
           />
           <KanbanColumn
             title="En Progreso"
@@ -201,6 +246,10 @@ export default function Home() {
             confirmDeleteTask={confirmDeleteTask}
             columnId="En Progreso"
             icon={<Settings className="h-4 w-4"/>}
+            onTaskClick={handleTaskClick}
+            selectedTask={selectedTask}
+            selectedColumn={selectedColumn}
+            setSelectedTask={setSelectedTask}
           />
           <KanbanColumn
             title="Completada"
@@ -209,6 +258,10 @@ export default function Home() {
             confirmDeleteTask={confirmDeleteTask}
             columnId="Completada"
             icon={<Check className="h-4 w-4"/>}
+            onTaskClick={handleTaskClick}
+            selectedTask={selectedTask}
+            selectedColumn={selectedColumn}
+            setSelectedTask={setSelectedTask}
           />
         </div>
 
@@ -239,13 +292,28 @@ export default function Home() {
 interface KanbanColumnProps {
   title: string;
   tasks: Task[];
-  moveTask: (taskTitle: string, from: string, to: string) => void;
-  confirmDeleteTask: (taskTitle: string, from: string) => void;
+  moveTask: (taskId: string, from: string, to: string) => void;
+  confirmDeleteTask: (taskId: string, from: string) => void;
   columnId: string;
   icon: React.ReactNode;
+  onTaskClick: (task: Task, columnId: string) => void;
+  selectedTask: Task | null;
+  selectedColumn: string | null;
+  setSelectedTask: (task: Task | null) => void;
 }
 
-function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId, icon}: KanbanColumnProps) {
+function KanbanColumn({
+                          title,
+                          tasks,
+                          moveTask,
+                          confirmDeleteTask,
+                          columnId,
+                          icon,
+                          onTaskClick,
+                          selectedTask,
+                          selectedColumn,
+                          setSelectedTask
+                        }: KanbanColumnProps) {
   const getColumnBackgroundColor = () => {
     switch (title) {
       case "Pendiente":
@@ -272,6 +340,18 @@ function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId, icon
     }
   };
 
+  const handleAccordionClick = () => {
+    // If the column is already selected, deselect it
+    if (selectedColumn === columnId) {
+      setSelectedTask(null);
+      return;
+    }
+    // If a task is selected in a different column, clear it
+    if (selectedTask) {
+      setSelectedTask(null);
+    }
+  };
+
   return (
     <Card className={`w-80 rounded-md shadow-sm ${getColumnBackgroundColor()}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -289,29 +369,34 @@ function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId, icon
           </TooltipProvider>
         </CardTitle>
       </CardHeader>
-        <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline">Mostrar Tareas</Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="flex flex-col gap-2 p-2">
-          {tasks.map((task, index) => (
-            <DropdownMenuItem key={index} className="px-2 py-1">
-              {index + 1}. {task.title}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-       <CardContent className="flex flex-col gap-4">
-        {tasks.map((task, index) => (
+      <CardContent className="flex flex-col gap-4">
+        <Accordion type="single" collapsible onValueChange={handleAccordionClick}>
+          <AccordionItem value={columnId}>
+            <AccordionTrigger>{title}</AccordionTrigger>
+            <AccordionContent>
+              {tasks.map((task) => (
+                <div key={task.id} className="mb-2">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => onTaskClick(task, columnId)}
+                  >
+                    {task.title}
+                  </Button>
+                </div>
+              ))}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
+        {selectedTask && selectedColumn === columnId && (
           <TaskCard
-            key={task.title}
-            task={task}
+            task={selectedTask}
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             from={columnId}
-            taskNumber={index + 1}
           />
-        ))}
+        )}
       </CardContent>
     </Card>
   );
@@ -319,13 +404,12 @@ function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId, icon
 
 interface TaskCardProps {
   task: Task;
-  moveTask: (taskTitle: string, from: string, to: string) => void;
-  confirmDeleteTask: (taskTitle: string, from: string) => void;
+  moveTask: (taskId: string, from: string, to: string) => void;
+  confirmDeleteTask: (taskId: string, from: string) => void;
   from: string;
-  taskNumber: number;
 }
 
-function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCardProps) {
+function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
   const isCloseToDueDate = task.dueDate ? differenceInDays(task.dueDate, new Date()) <= 3 : false;
   const isOverdue = task.dueDate ? isPast(task.dueDate) : false;
   const dueDateClassName = (isCloseToDueDate || isOverdue) ? 'text-red-500' : '';
@@ -353,7 +437,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
             <Tooltip>
               <TooltipTrigger asChild>
                 <IconButton
-                  onClick={() => moveTask(task.title, from, 'Pendiente')}
+                  onClick={() => moveTask(task.id, from, 'Pendiente')}
                   icon={<Clock className="h-4 w-4"/>}
                   color="bg-blue-500"
                 />
@@ -365,7 +449,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
             <Tooltip>
               <TooltipTrigger asChild>
                 <IconButton
-                  onClick={() => moveTask(task.title, from, 'En Progreso')}
+                  onClick={() => moveTask(task.id, from, 'En Progreso')}
                   icon={<Settings className="h-4 w-4"/>}
                   color="bg-yellow-500"
                 />
@@ -377,7 +461,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
             <Tooltip>
               <TooltipTrigger asChild>
                 <IconButton
-                  onClick={() => moveTask(task.title, from, 'Completada')}
+                  onClick={() => moveTask(task.id, from, 'Completada')}
                   icon={<Check className="h-4 w-4"/>}
                   color="bg-green-500"
                 />
@@ -389,7 +473,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
             <Tooltip>
               <TooltipTrigger asChild>
                 <IconButton
-                  onClick={() => confirmDeleteTask(task.title, from)}
+                  onClick={() => confirmDeleteTask(task.id, from)}
                   icon={<Trash2 className="h-4 w-4"/>}
                   color="bg-red-500"
                 />
@@ -418,3 +502,5 @@ function IconButton({onClick, icon, color}: IconButtonProps) {
     </Button>
   );
 }
+
+
