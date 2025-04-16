@@ -34,14 +34,14 @@ export default function Home() {
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const [fromColumnToDelete, setFromColumnToDelete] = useState<string | null>(null);
   const [formattedDate, setFormattedDate] = useState('Escoge una fecha');
-  const { toast } = useToast()
+  const {toast} = useToast()
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
 
 
   useEffect(() => {
     if (dueDate instanceof Date) {
-      setFormattedDate(format(dueDate, "PPP", { locale: es }));
+      setFormattedDate(format(dueDate, "PPP", {locale: es}));
     } else {
       setFormattedDate('Escoge una fecha');
     }
@@ -94,13 +94,12 @@ export default function Home() {
 
     if (from === 'Pendiente') {
       [taskToMove, updatedPendingTasks] = removeTask(pendingTasks, setPendingTasks);
-      setPendingTasks(updatedPendingTasks)
     } else if (from === 'En Progreso') {
       [taskToMove, updatedInProgressTasks] = removeTask(inProgressTasks, setInProgressTasks);
-      setInProgressTasks(updatedInProgressTasks)
     } else if (from === 'Completada') {
       [taskToMove, updatedCompletedTasks] = removeTask(completedTasks, setCompletedTasks);
-      setCompletedTasks(updatedCompletedTasks)
+    } else {
+      return;
     }
 
     if (taskToMove) {
@@ -118,9 +117,7 @@ export default function Home() {
       }
     }
 
-    //Deselecciona la tarea
     setSelectedTask(null)
-
     toast({
       title: "Tarea movida!",
       description: `Tarea movida de ${from} a ${to}.`,
@@ -159,7 +156,6 @@ export default function Home() {
     setTaskToDelete(null);
     setFromColumnToDelete(null);
 
-    //Deselecciona la tarea
     setSelectedTask(null)
     toast({
       title: "Tarea eliminada!",
@@ -168,8 +164,8 @@ export default function Home() {
   };
 
   const handleTaskClick = (task: Task, columnId: string) => {
-      setSelectedTask(task);
-      setSelectedColumn(columnId);
+    setSelectedTask(task);
+    setSelectedColumn(columnId);
   };
 
 
@@ -380,20 +376,26 @@ function KanbanColumn({
           <AccordionItem value={columnId}>
             <AccordionTrigger>{dropdownTitle}</AccordionTrigger>
             <AccordionContent>
-              {tasks.map((task, index) => {
-                const taskNumber = index + 1;
-                return (
-                  <div key={task.id} className="mb-2">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start"
-                      onClick={() => onTaskClick(task, columnId)}
-                    >
-                      {taskNumber}. {task.title}
-                    </Button>
-                  </div>
-                );
-              })}
+              {tasks.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  Agrega tareas a esta sección.
+                </div>
+              ) : (
+                tasks.map((task, index) => {
+                  const taskNumber = index + 1;
+                  return (
+                    <div key={task.id} className="mb-2">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start"
+                        onClick={() => onTaskClick(task, columnId)}
+                      >
+                        {taskNumber}. {task.title}
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -434,7 +436,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
         </div>
         {task.dueDate && (
           <span className={cn("text-sm", dueDateClassName)}>
-            Fecha: {task.dueDate ? format(task.dueDate, "PPP", { locale: es }) : 'Sin fecha'}
+            Fecha: {task.dueDate ? format(task.dueDate, "PPP", {locale: es}) : 'Sin fecha'}
           </span>
         )}
 
