@@ -68,35 +68,35 @@ export default function Home() {
   };
 
   const moveTask = (taskTitle: string, from: string, to: string) => {
-      let taskToMove: Task | undefined;
-      let taskList: Task[] = [];
+    let taskToMove: Task | undefined;
+    let taskList: Task[] = [];
 
-      if (from === 'Pendiente') {
-          taskList = pendingTasks;
-          setPendingTasks(pendingTasks.filter(task => task.title !== taskTitle));
-      } else if (from === 'En Progreso') {
-          taskList = inProgressTasks;
-          setInProgressTasks(inProgressTasks.filter(task => task.title !== taskTitle));
-      } else if (from === 'Completada') {
-          taskList = completedTasks;
-          setCompletedTasks(completedTasks.filter(task => task.title !== taskTitle));
+    if (from === 'Pendiente') {
+      taskList = pendingTasks;
+      setPendingTasks(pendingTasks.filter(task => task.title !== taskTitle));
+    } else if (from === 'En Progreso') {
+      taskList = inProgressTasks;
+      setInProgressTasks(inProgressTasks.filter(task => task.title !== taskTitle));
+    } else if (from === 'Completada') {
+      taskList = completedTasks;
+      setCompletedTasks(completedTasks.filter(task => task.title !== taskTitle));
+    }
+
+    taskToMove = taskList.find(task => task.title === taskTitle);
+
+    if (taskToMove) {
+      if (to === 'Pendiente') {
+        setPendingTasks([...pendingTasks, taskToMove]);
+      } else if (to === 'En Progreso') {
+        setInProgressTasks([...inProgressTasks, taskToMove]);
+      } else if (to === 'Completada') {
+        setCompletedTasks([...completedTasks, taskToMove]);
       }
-
-      taskToMove = taskList.find(task => task.title === taskTitle);
-
-      if (taskToMove) {
-          if (to === 'Pendiente') {
-              setPendingTasks([...pendingTasks, taskToMove]);
-          } else if (to === 'En Progreso') {
-              setInProgressTasks([...inProgressTasks, taskToMove]);
-          } else if (to === 'Completada') {
-              setCompletedTasks([...completedTasks, taskToMove]);
-          }
-      }
-       toast({
-        title: "Tarea movida!",
-        description: `Tarea movida de ${from} a ${to}.`,
-      })
+    }
+    toast({
+      title: "Tarea movida!",
+      description: `Tarea movida de ${from} a ${to}.`,
+    })
   };
 
   const confirmDeleteTask = (taskTitle: string, from: string) => {
@@ -124,10 +124,10 @@ export default function Home() {
     setOpen(false);
     setTaskToDelete(null);
     setFromColumnToDelete(null);
-     toast({
-        title: "Tarea eliminada!",
-        description: "Tarea eliminada permanentemente.",
-      })
+    toast({
+      title: "Tarea eliminada!",
+      description: "Tarea eliminada permanentemente.",
+    })
   };
 
 
@@ -137,7 +137,7 @@ export default function Home() {
         <h1 className="text-2xl font-bold">Tablero Kanban de TaskFlow</h1>
 
         <div className="flex flex-col gap-2">
-           <div>Título:</div>
+          <div>Título:</div>
           <Input
             type="text"
             placeholder="Ingrese el título de la tarea"
@@ -145,8 +145,8 @@ export default function Home() {
             onChange={(e) => setNewTaskTitle(e.target.value)}
             className="border rounded p-2 w-full"
           />
-           <div>Descripción:</div>
-           <Textarea
+          <div>Descripción:</div>
+          <Textarea
             placeholder="Ingrese la descripción de la tarea"
             value={newTaskDescription}
             onChange={(e) => setNewTaskDescription(e.target.value)}
@@ -174,7 +174,7 @@ export default function Home() {
                   initialFocus
                   fromMonth={new Date()}
                   defaultMonth={new Date()}
-                  
+
                 />
               </PopoverContent>
             </Popover>
@@ -289,18 +289,18 @@ function KanbanColumn({title, tasks, moveTask, confirmDeleteTask, columnId, icon
           </TooltipProvider>
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        {tasks.map((task, index) => (
-          <TaskCard
-            key={index}
-            task={task}
-            moveTask={moveTask}
-            confirmDeleteTask={confirmDeleteTask}
-            from={columnId}
-            taskNumber={index + 1}
-          />
-        ))}
-      </CardContent>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline">Mostrar Tareas</Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="flex flex-col gap-2 p-2">
+          {tasks.map((task, index) => (
+            <DropdownMenuItem key={index} className="px-2 py-1">
+              {index + 1}. {task.title}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </Card>
   );
 }
@@ -332,8 +332,8 @@ function TaskCard({task, moveTask, confirmDeleteTask, from, taskNumber}: TaskCar
             Fecha: {task.dueDate ? format(task.dueDate, "PPP", { locale: es }) : 'Sin fecha'}
           </span>
         )}
-        
-        
+
+
       </CardContent>
       <CardContent>
         <div className="flex justify-between mt-2">
