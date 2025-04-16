@@ -401,6 +401,20 @@ function KanbanColumn({
     }
   };
 
+  let displayTitle = '';
+  switch (title) {
+    case "Pendiente":
+      displayTitle = `Tareas Pendientes`;
+      break;
+    case "En Progreso":
+      displayTitle = `Tareas En Progreso`;
+      break;
+    case "Completada":
+      displayTitle = `Tareas Completadas`;
+      break;
+    default:
+      displayTitle = title;
+  }
 
   const handleAccordionClick = () => {
     if (selectedColumn === columnId) {
@@ -419,7 +433,7 @@ function KanbanColumn({
           <Accordion type="single" collapsible onValueChange={handleAccordionClick}>
             <AccordionItem value={columnId}>
               <AccordionTrigger className="text-md font-medium flex items-center gap-2 hover:underline">
-                {title} <span>({tasks.length})</span>
+                 {tasks.length}  {displayTitle}
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
