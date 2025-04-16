@@ -37,6 +37,7 @@ export default function Home() {
   const {toast} = useToast()
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
+  const [showAlert, setShowAlert] = useState(false);
 
 
   useEffect(() => {
@@ -69,6 +70,8 @@ export default function Home() {
         title: "Tarea agregada!",
         description: "Tarea agregada a Pendiente.",
       })
+    } else {
+      setShowAlert(true);
     }
   };
 
@@ -220,6 +223,21 @@ export default function Home() {
             <Button onClick={handleAddTask} className="bg-teal-500 text-white rounded px-4 py-2">
               Agregar Tarea
             </Button>
+            <AlertDialog open={showAlert} onOpenChange={setShowAlert}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Faltan Datos</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Por favor, completa el título y la descripción de la tarea.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setShowAlert(false)}>
+                    Ok
+                  </AlertDialogCancel>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 
