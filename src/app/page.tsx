@@ -88,16 +88,17 @@ export default function Home() {
     };
 
     // Remove the task from its current column
+    let updatedPendingTasks: Task[];
+    let updatedInProgressTasks: Task[];
+    let updatedCompletedTasks: Task[];
+
     if (from === 'Pendiente') {
-      let updatedPendingTasks: Task[];
       [taskToMove, updatedPendingTasks] = removeTask(pendingTasks, setPendingTasks);
       setPendingTasks(updatedPendingTasks)
     } else if (from === 'En Progreso') {
-      let updatedInProgressTasks: Task[];
       [taskToMove, updatedInProgressTasks] = removeTask(inProgressTasks, setInProgressTasks);
       setInProgressTasks(updatedInProgressTasks)
     } else if (from === 'Completada') {
-      let updatedCompletedTasks: Task[];
       [taskToMove, updatedCompletedTasks] = removeTask(completedTasks, setCompletedTasks);
       setCompletedTasks(updatedCompletedTasks)
     }
@@ -374,17 +375,20 @@ function KanbanColumn({
           <AccordionItem value={columnId}>
             <AccordionTrigger>{title}</AccordionTrigger>
             <AccordionContent>
-              {tasks.map((task) => (
-                <div key={task.id} className="mb-2">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => onTaskClick(task, columnId)}
-                  >
-                    {task.title}
-                  </Button>
-                </div>
-              ))}
+              {tasks.map((task, index) => {
+                const taskNumber = index + 1;
+                return (
+                  <div key={task.id} className="mb-2">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => onTaskClick(task, columnId)}
+                    >
+                      {taskNumber}. {task.title}
+                    </Button>
+                  </div>
+                );
+              })}
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -502,5 +506,6 @@ function IconButton({onClick, icon, color}: IconButtonProps) {
     </Button>
   );
 }
+
 
 
