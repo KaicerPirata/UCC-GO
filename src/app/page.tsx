@@ -419,7 +419,7 @@ function KanbanColumn({
           <Accordion type="single" collapsible onValueChange={handleAccordionClick}>
             <AccordionItem value={columnId}>
               <AccordionTrigger className="text-md font-medium flex items-center gap-2 hover:underline">
-                {title}
+                {title} <span>({tasks.length})</span>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
