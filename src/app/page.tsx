@@ -11,11 +11,12 @@ import {format} from "date-fns"
 import {es} from 'date-fns/locale';
 import {AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger} from '@/components/ui/alert-dialog';
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
-import {Check, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, Clock, Settings} from "lucide-react";
+import {Check, ChevronLeft, ChevronRight, Loader2, Trash2, Clock, Settings} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
 export default function Home() {
