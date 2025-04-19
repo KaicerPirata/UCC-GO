@@ -1,6 +1,6 @@
 'use client';
 
-import {useState, useEffect} from 'react';
+import {useState, useEffect, useCallback} from 'react';
 import {Card, CardContent, CardHeader} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {Calendar} from "@/components/ui/calendar"
@@ -16,6 +16,16 @@ import {Textarea} from "@/components/ui/textarea";
 import {useToast} from "@/hooks/use-toast"
 import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "@/components/ui/accordion";
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  Firestore,
+} from "firebase/firestore";
+import {db} from "@/lib/firebase";
 
 interface Task {
   id: string;
@@ -42,6 +52,8 @@ export default function Home() {
   const [showDateAlert, setShowDateAlert] = useState(false);
   const [showDuplicateTaskAlert, setShowDuplicateTaskAlert] = useState(false);
 
+  const tasksCollection = collection(db, "tasks");
+
   useEffect(() => {
     if (dueDate instanceof Date) {
       setFormattedDate(format(dueDate, "PPP", {locale: es}));
@@ -49,6 +61,27 @@ export default function Home() {
       setFormattedDate('Escoge una fecha');
     }
   }, [dueDate]);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(tasksCollection, (snapshot) => {
+      const tasks: Task[] = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        const dueDate = data.dueDate ? new Date(data.dueDate) : undefined;
+        return { id: doc.id, ...data, dueDate } as Task;
+      });
+
+      // Separar las tareas en las diferentes listas
+      const pending = tasks.filter(task => task.status === 'Pendiente');
+      const inProgress = tasks.filter(task => task.status === 'En Progreso');
+      const completed = tasks.filter(task => task.status === 'Completada');
+
+      setPendingTasks(pending);
+      setInProgressTasks(inProgress);
+      setCompletedTasks(completed);
+    });
+
+    return () => unsubscribe(); // Cleanup function
+  }, []);
 
 
   const handleDateChange = (date: Date | undefined) => {
@@ -75,63 +108,51 @@ export default function Home() {
       return;
     }
 
+    try {
+      await addDoc(tasksCollection, {
+        title: newTaskTitle,
+        description: newTaskDescription,
+        dueDate: dueDate.toISOString(),
+        status: 'Pendiente', // Todas las nuevas tareas se agregan como "Pendiente"
+      });
 
-    const newTask: Task = {
-      id: crypto.randomUUID(),
-      title: newTaskTitle,
-      description: newTaskDescription,
-      dueDate: dueDate
-    };
-    setPendingTasks([...pendingTasks, newTask]);
-    setNewTaskTitle('');
-    setNewTaskDescription('');
-    setDueDate(undefined);
-    setFormattedDate('Escoge una fecha');
-    toast({
-      title: "Tarea agregada!",
-      description: "Tarea agregada a Pendiente.",
-    })
-
+      setNewTaskTitle('');
+      setNewTaskDescription('');
+      setDueDate(undefined);
+      setFormattedDate('Escoge una fecha');
+      toast({
+        title: "Tarea agregada!",
+        description: "Tarea agregada a Pendiente.",
+      });
+    } catch (error) {
+      console.error("Error al agregar la tarea:", error);
+      toast({
+        title: "Error!",
+        description: "Error al agregar la tarea.",
+      });
+    }
   };
 
-  const moveTask = (taskId: string, from: string, to: string) => {
+  const moveTask = async (taskId: string, from: string, to: string) => {
+    try {
+      // Actualiza el estado de la tarea en Firestore
+      const taskDocRef = doc(db, "tasks", taskId);
+      await updateDoc(taskDocRef, {
+        status: to,
+      });
 
-    let taskToMove: Task | undefined;
-    let updatedPendingTasks: Task[] = [...pendingTasks];
-    let updatedInProgressTasks: Task[] = [...inProgressTasks];
-    let updatedCompletedTasks: Task[] = [...completedTasks];
-
-    if (from === 'Pendiente') {
-      taskToMove = pendingTasks.find(task => task.id === taskId);
-      updatedPendingTasks = pendingTasks.filter(task => task.id !== taskId);
-      setPendingTasks(updatedPendingTasks);
-    } else if (from === 'En Progreso') {
-      taskToMove = inProgressTasks.find(task => task.id === taskId);
-      updatedInProgressTasks = inProgressTasks.filter(task => task.id !== taskId);
-      setInProgressTasks(updatedInProgressTasks);
-    } else if (from === 'Completada') {
-      taskToMove = completedTasks.find(task => task.id === taskId);
-      updatedCompletedTasks = completedTasks.filter(task => task.id !== taskId);
-      setCompletedTasks(updatedCompletedTasks);
-    } else {
-      return;
+      setSelectedTask(null);
+      toast({
+        title: "Tarea movida!",
+        description: `Tarea movida de ${from} a ${to}.`,
+      });
+    } catch (error) {
+      console.error("Error al mover la tarea:", error);
+      toast({
+        title: "Error!",
+        description: "Error al mover la tarea.",
+      });
     }
-
-    if (taskToMove) {
-      if (to === 'Pendiente') {
-        setPendingTasks([...updatedPendingTasks, taskToMove]);
-      } else if (to === 'En Progreso') {
-        setInProgressTasks([...updatedInProgressTasks, taskToMove]);
-      } else if (to === 'Completada') {
-        setCompletedTasks([...updatedCompletedTasks, taskToMove]);
-      }
-    }
-
-    setSelectedTask(null)
-    toast({
-      title: "Tarea movida!",
-      description: `Tarea movida de ${from} a ${to}.`,
-    })
   };
 
   const confirmDeleteTask = (taskId: string, from: string) => {
@@ -140,37 +161,30 @@ export default function Home() {
     setOpen(true);
   };
 
-  const deleteTask = () => {
+  const deleteTask = async () => {
     if (!taskToDelete || !fromColumnToDelete) return;
 
-    let taskList: Task[] = [];
-    let setTask: (tasks: Task[]) => void;
+    try {
+      // Elimina la tarea de Firestore
+      const taskDocRef = doc(db, "tasks", taskToDelete);
+      await deleteDoc(taskDocRef);
 
-    if (fromColumnToDelete === 'Pendiente') {
-      taskList = pendingTasks;
-      setTask = setPendingTasks;
-    } else if (fromColumnToDelete === 'En Progreso') {
-      taskList = inProgressTasks;
-      setTask = setInProgressTasks;
-    } else if (fromColumnToDelete === 'Completada') {
-      taskList = completedTasks;
-      setTask = setCompletedTasks;
-    } else {
-      return; // Invalid column
+      setOpen(false);
+      setTaskToDelete(null);
+      setFromColumnToDelete(null);
+
+      setSelectedTask(null);
+      toast({
+        title: "Tarea eliminada!",
+        description: "Tarea eliminada permanentemente.",
+      });
+    } catch (error) {
+      console.error("Error al eliminar la tarea:", error);
+      toast({
+        title: "Error!",
+        description: "Error al eliminar la tarea.",
+      });
     }
-
-    const updatedTaskList = taskList.filter(task => task.id !== taskToDelete);
-    setTask(updatedTaskList);
-
-    setOpen(false);
-    setTaskToDelete(null);
-    setFromColumnToDelete(null);
-
-    setSelectedTask(null)
-    toast({
-      title: "Tarea eliminada!",
-      description: "Tarea eliminada permanentemente.",
-    })
   };
 
   const handleTaskClick = (task: Task, columnId: string) => {
