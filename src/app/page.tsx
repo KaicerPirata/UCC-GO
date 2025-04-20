@@ -32,6 +32,7 @@ interface Task {
   title: string;
   description: string;
   dueDate?: Date;
+  status: string;
 }
 
 export default function Home() {
@@ -67,7 +68,7 @@ export default function Home() {
       const tasks: Task[] = snapshot.docs.map((doc) => {
         const data = doc.data();
         const dueDate = data.dueDate ? new Date(data.dueDate) : undefined;
-        return { id: doc.id, ...data, dueDate } as Task;
+        return { id: doc.id, ...data, dueDate, status: data.status } as Task;
       });
 
       // Separar las tareas en las diferentes listas
@@ -169,6 +170,15 @@ export default function Home() {
       const taskDocRef = doc(db, "tasks", taskToDelete);
       await deleteDoc(taskDocRef);
 
+      // Actualiza el estado local inmediatamente
+      if (fromColumnToDelete === 'Pendiente') {
+        setPendingTasks(pendingTasks.filter(task => task.id !== taskToDelete));
+      } else if (fromColumnToDelete === 'En Progreso') {
+        setInProgressTasks(inProgressTasks.filter(task => task.id !== taskToDelete));
+      } else if (fromColumnToDelete === 'Completada') {
+        setCompletedTasks(completedTasks.filter(task => task.id !== taskToDelete));
+      }
+
       setOpen(false);
       setTaskToDelete(null);
       setFromColumnToDelete(null);
@@ -186,6 +196,7 @@ export default function Home() {
       });
     }
   };
+
 
   const handleTaskClick = (task: Task, columnId: string) => {
     setSelectedTask(task);
