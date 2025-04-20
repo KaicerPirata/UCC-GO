@@ -165,25 +165,45 @@ export default function Home() {
   const deleteTask = async () => {
     if (!taskToDelete || !fromColumnToDelete) return;
 
+    const taskId = taskToDelete;
+    const fromColumn = fromColumnToDelete;
+
+    // Optimistically update the UI
+    let taskToRemove: Task | undefined;
+    let updatedTasks: Task[] = [];
+
+    // Immediately update the state based on which column the task is being deleted from
+    switch (fromColumn) {
+      case 'Pendiente':
+        taskToRemove = pendingTasks.find(task => task.id === taskId);
+        updatedTasks = pendingTasks.filter(task => task.id !== taskId);
+        setPendingTasks(updatedTasks);
+        break;
+      case 'En Progreso':
+        taskToRemove = inProgressTasks.find(task => task.id === taskId);
+        updatedTasks = inProgressTasks.filter(task => task.id !== taskId);
+        setInProgressTasks(updatedTasks);
+        break;
+      case 'Completada':
+        taskToRemove = completedTasks.find(task => task.id === taskId);
+        updatedTasks = completedTasks.filter(task => task.id !== taskId);
+        setCompletedTasks(updatedTasks);
+        break;
+      default:
+        console.error("Columna inválida:", fromColumn);
+        return;
+    }
+
+    setOpen(false);
+    setTaskToDelete(null);
+    setFromColumnToDelete(null);
+    setSelectedTask(null);
+
     try {
       // Elimina la tarea de Firestore
-      const taskDocRef = doc(db, "tasks", taskToDelete);
+      const taskDocRef = doc(db, "tasks", taskId);
       await deleteDoc(taskDocRef);
 
-      // Actualiza el estado local inmediatamente
-      if (fromColumnToDelete === 'Pendiente') {
-        setPendingTasks(pendingTasks.filter(task => task.id !== taskToDelete));
-      } else if (fromColumnToDelete === 'En Progreso') {
-        setInProgressTasks(inProgressTasks.filter(task => task.id !== taskToDelete));
-      } else if (fromColumnToDelete === 'Completada') {
-        setCompletedTasks(completedTasks.filter(task => task.id !== taskToDelete));
-      }
-
-      setOpen(false);
-      setTaskToDelete(null);
-      setFromColumnToDelete(null);
-
-      setSelectedTask(null);
       toast({
         title: "Tarea eliminada!",
         description: "Tarea eliminada permanentemente.",
@@ -194,6 +214,21 @@ export default function Home() {
         title: "Error!",
         description: "Error al eliminar la tarea.",
       });
+
+      // If there's an error, revert the UI update by adding the task back to its original column
+      if (taskToRemove) {
+        switch (fromColumn) {
+          case 'Pendiente':
+            setPendingTasks([...pendingTasks, taskToRemove]);
+            break;
+          case 'En Progreso':
+            setInProgressTasks([...inProgressTasks, taskToRemove]);
+            break;
+          case 'Completada':
+            setCompletedTasks([...completedTasks, taskToRemove]);
+            break;
+        }
+      }
     }
   };
 
