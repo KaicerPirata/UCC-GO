@@ -135,12 +135,47 @@ export default function Home() {
   };
 
   const moveTask = async (taskId: string, from: string, to: string) => {
+    let taskToMove: Task | undefined;
+    let updatedPendingTasks = [...pendingTasks];
+    let updatedInProgressTasks = [...inProgressTasks];
+    let updatedCompletedTasks = [...completedTasks];
+
+    // Función para remover la tarea de su lista actual
+    const removeTask = (tasks: Task[], setTasks: React.Dispatch<React.SetStateAction<Task[]>>) => {
+      const taskIndex = tasks.findIndex(task => task.id === taskId);
+      if (taskIndex > -1) {
+        taskToMove = tasks.splice(taskIndex, 1)[0];
+        setTasks([...tasks]);
+      }
+    };
+
+    // Remover la tarea de la lista 'from'
+    if (from === 'Pendiente') {
+      removeTask(updatedPendingTasks, setPendingTasks);
+    } else if (from === 'En Progreso') {
+      removeTask(updatedInProgressTasks, setInProgressTasks);
+    } else if (from === 'Completada') {
+      removeTask(updatedCompletedTasks, setCompletedTasks);
+    }
+
     try {
       // Actualiza el estado de la tarea en Firestore
       const taskDocRef = doc(db, "tasks", taskId);
       await updateDoc(taskDocRef, {
         status: to,
       });
+
+      // Agregar la tarea a la nueva lista 'to'
+      if (taskToMove) {
+        taskToMove.status = to;
+        if (to === 'Pendiente') {
+          setPendingTasks([taskToMove, ...updatedPendingTasks]);
+        } else if (to === 'En Progreso') {
+          setInProgressTasks([taskToMove, ...updatedInProgressTasks]);
+        } else if (to === 'Completada') {
+          setCompletedTasks([taskToMove, ...updatedCompletedTasks]);
+        }
+      }
 
       setSelectedTask(null);
       toast({
