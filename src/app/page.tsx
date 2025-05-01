@@ -113,18 +113,36 @@ function MainContent() {
 
         const tasks: Task[] = snapshot.docs.map((doc) => {
           const data = doc.data();
-          const dueDate = data.dueDate instanceof Timestamp
-            ? data.dueDate.toDate()
-            : data.dueDate ? new Date(data.dueDate) : undefined;
-          const status = typeof data.status === 'string' ? data.status : 'Pendiente';
+          // Ensure dueDate is correctly converted from Firestore Timestamp or string
+          let taskDueDate: Date | undefined;
+          if (data.dueDate instanceof Timestamp) {
+            taskDueDate = data.dueDate.toDate();
+          } else if (typeof data.dueDate === 'string') {
+            try {
+              taskDueDate = new Date(data.dueDate);
+              // Check if the date is valid after parsing
+              if (isNaN(taskDueDate.getTime())) {
+                 console.warn(`Invalid date string found for task ${doc.id}: ${data.dueDate}`);
+                 taskDueDate = undefined;
+              }
+            } catch (e) {
+              console.error(`Error parsing date string for task ${doc.id}: ${data.dueDate}`, e);
+              taskDueDate = undefined;
+            }
+          } else {
+              taskDueDate = undefined; // Handle cases where dueDate might be missing or null
+          }
+
+          const status = typeof data.status === 'string' ? data.status : 'Pendiente'; // Default status
           return {
             id: doc.id,
             title: data.title,
             description: data.description,
             status: status,
-            dueDate: dueDate,
+            dueDate: taskDueDate,
           } as Task;
         });
+
 
         const pending = tasks.filter((task) => task.status === 'Pendiente');
         const inProgress = tasks.filter((task) => task.status === 'En Progreso');
@@ -146,14 +164,14 @@ function MainContent() {
 
     fetchTasks(); // Llamar a la función de carga
   // Quitar onSnapshot y la función de limpieza
-  }, [tasksCollection, toast]); // Dependencias para volver a cargar si cambian
+  }, [toast]); // Dependencias para volver a cargar si cambian - removed tasksCollection as dependency
 
 
   const handleDateChange = (date: Date | undefined) => {
     setDueDate(date);
   };
 
-  const handleAddTask = async () => {
+ const handleAddTask = async () => {
     if (!newTaskTitle || !newTaskDescription) {
       setShowAlert(true);
       return;
@@ -164,7 +182,7 @@ function MainContent() {
       return;
     }
 
-    // Verificar si ya existe una tarea con el mismo título
+    // Verify if a task with the same title already exists
     const allTasks = [...pendingTasks, ...inProgressTasks, ...completedTasks];
     const taskExists = allTasks.some(
       (task) => task.title.toLowerCase() === newTaskTitle.toLowerCase()
@@ -178,37 +196,38 @@ function MainContent() {
     const newTaskData = {
       title: newTaskTitle,
       description: newTaskDescription,
-      dueDate: dueDate.toISOString(), // Guardar como ISO string
+      dueDate: dueDate.toISOString(), // Save as ISO string in Firestore
       status: 'Pendiente',
     };
 
-
     try {
-     const docRef = await addDoc(tasksCollection, newTaskData);
+      // Add to Firestore first
+      const docRef = await addDoc(tasksCollection, newTaskData);
 
-      // Crear la nueva tarea para el estado local
+      // Create the new task object for local state using the Firestore doc ID
       const newTask: Task = {
         ...newTaskData,
         id: docRef.id,
-        dueDate: dueDate, // Usar el objeto Date para el estado local
+        dueDate: dueDate, // Use the Date object for local state consistency
       };
 
-      // Actualizar el estado local inmediatamente
-      setPendingTasks([newTask, ...pendingTasks]);
+      // Use functional update for setPendingTasks
+      setPendingTasks(prevPendingTasks => [newTask, ...prevPendingTasks]);
 
-
+      // Reset form fields
       setNewTaskTitle('');
       setNewTaskDescription('');
       setDueDate(undefined);
       setFormattedDate('Escoge una fecha');
+
       toast({
-        title: 'Tarea agregada!',
+        title: '¡Tarea agregada!',
         description: 'Tarea agregada a Pendiente.',
       });
     } catch (error) {
       console.error('Error al agregar la tarea:', error);
       toast({
-        title: 'Error!',
+        title: '¡Error!',
         description: 'Error al agregar la tarea.',
         variant: 'destructive',
       });
@@ -224,7 +243,7 @@ function MainContent() {
 
     const removeTask = (
       tasks: Task[],
-      setTasks: React.Dispatch<React.SetStateAction<Task[]>>
+      // setTasks: React.Dispatch<React.SetStateAction<Task[]>> // removed setTasks param
     ): [Task | undefined, Task[]] => { // Return tuple
       const taskIndex = tasks.findIndex((task) => task.id === taskId);
       if (taskIndex > -1) {
@@ -240,11 +259,11 @@ function MainContent() {
 
     // Remover la tarea de la lista 'from' y obtener la lista actualizada
     if (from === 'Pendiente') {
-      [taskToMove, updatedPendingTasks] = removeTask(pendingTasks, setPendingTasks);
+      [taskToMove, updatedPendingTasks] = removeTask(pendingTasks);
     } else if (from === 'En Progreso') {
-      [taskToMove, updatedInProgressTasks] = removeTask(inProgressTasks, setInProgressTasks);
+      [taskToMove, updatedInProgressTasks] = removeTask(inProgressTasks);
     } else if (from === 'Completada') {
-       [taskToMove, updatedCompletedTasks] = removeTask(completedTasks, setCompletedTasks);
+       [taskToMove, updatedCompletedTasks] = removeTask(completedTasks);
     }
 
 
@@ -282,13 +301,13 @@ function MainContent() {
       });
 
       toast({
-        title: 'Tarea movida!',
+        title: '¡Tarea movida!',
         description: `Tarea movida de ${from} a ${to}.`,
       });
     } catch (error) {
       console.error('Error al mover la tarea:', error);
       toast({
-        title: 'Error!',
+        title: '¡Error!',
         description: 'Error al mover la tarea.',
         variant: 'destructive',
       });
@@ -305,13 +324,13 @@ function MainContent() {
          setCompletedTasks(updatedCompletedTasks);
        }
 
-       // Add back to the 'from' column
+       // Add back to the 'from' column - use original state to avoid issues
        if (from === 'Pendiente') {
-         setPendingTasks([revertedTask, ...pendingTasks]); // Re-add to original position (approx)
+         setPendingTasks([...pendingTasks]); // Re-add to original state
        } else if (from === 'En Progreso') {
-         setInProgressTasks([revertedTask, ...inProgressTasks]);
+         setInProgressTasks([...inProgressTasks]); // Re-add to original state
        } else if (from === 'Completada') {
-         setCompletedTasks([revertedTask, ...completedTasks]);
+         setCompletedTasks([...completedTasks]); // Re-add to original state
        }
     }
   };
@@ -370,13 +389,13 @@ function MainContent() {
       await deleteDoc(taskDocRef);
 
       toast({
-        title: 'Tarea eliminada!',
+        title: '¡Tarea eliminada!',
         description: 'Tarea eliminada permanentemente.',
       });
     } catch (error) {
       console.error('Error al eliminar la tarea:', error);
       toast({
-        title: 'Error!',
+        title: '¡Error!',
         description: 'Error al eliminar la tarea.',
         variant: 'destructive',
       });
@@ -406,7 +425,7 @@ function MainContent() {
       <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4 bg-background text-foreground">
         {/* Removed Sign Out button */}
         <div className="text-center mb-8">
-           <h1 className="text-5xl font-bold mb-2 font-sans">CheckItOut</h1>
+           <h1 className="text-5xl font-bold mb-2 font-sans text-primary">CheckItOut</h1>
            <p className="text-lg text-muted-foreground">Tablero Kanban</p>
         </div>
 
@@ -427,7 +446,7 @@ function MainContent() {
               placeholder="Ingresa el título de la tarea"
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
-              className="mt-1 shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-input rounded-md bg-input text-foreground"
+              className="mt-1 shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-input rounded-md bg-card text-foreground" // Use card background
             />
           </div>
 
@@ -442,7 +461,7 @@ function MainContent() {
               placeholder="Ingresa la descripción de la tarea"
               value={newTaskDescription}
               onChange={(e) => setNewTaskDescription(e.target.value)}
-              className="mt-1 shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-input rounded-md bg-input text-foreground"
+              className="mt-1 shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-input rounded-md bg-card text-foreground" // Use card background
             />
           </div>
 
@@ -454,7 +473,7 @@ function MainContent() {
                   className={cn(
                     'w-[240px] justify-start text-left font-normal',
                     !dueDate && 'text-muted-foreground',
-                    'bg-input border-input hover:bg-accent hover:text-accent-foreground'
+                    'bg-card border-input hover:bg-accent hover:text-accent-foreground' // Use card background
                   )}>
                   {formattedDate}
                 </Button>
@@ -546,7 +565,7 @@ function MainContent() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="Pendiente"
-            icon={<Clock className="h-4 w-4" />}
+            icon={<Clock className="h-4 w-4 text-yellow-500" />} // Yellow icon
             onTaskClick={handleTaskClick}
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
@@ -560,7 +579,7 @@ function MainContent() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="En Progreso"
-            icon={<Settings className="h-4 w-4" />}
+            icon={<Settings className="h-4 w-4 text-blue-500" />} // Blue icon
             onTaskClick={handleTaskClick}
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
@@ -574,7 +593,7 @@ function MainContent() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="Completada"
-            icon={<Check className="h-4 w-4" />}
+            icon={<Check className="h-4 w-4 text-green-500" />} // Green icon
             onTaskClick={handleTaskClick}
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
@@ -643,16 +662,16 @@ function KanbanColumn({
   tooltipText,
 }: KanbanColumnProps) {
   const getColumnBackgroundColor = () => {
-    // Usa colores más oscuros o temáticos para el modo oscuro
+    // Use thematic colors based on globals.css variables
     switch (title) {
       case 'Pendiente':
-        return 'bg-gray-800 border border-gray-700'; // Gris oscuro
+        return 'bg-secondary border border-border'; // Secondary background
       case 'En Progreso':
-        return 'bg-blue-900 border border-blue-800'; // Azul oscuro
+        return 'bg-primary/10 border border-primary/50'; // Lighter primary
       case 'Completada':
-        return 'bg-green-900 border border-green-800'; // Verde oscuro
+        return 'bg-green-500/10 border border-green-500/50'; // Light green (custom, adjust if needed)
       default:
-        return 'bg-gray-900 border border-gray-700'; // Negro/gris muy oscuro por defecto
+        return 'bg-card border border-border'; // Default card background
     }
   };
 
@@ -683,7 +702,7 @@ function KanbanColumn({
 
   return (
     <Card
-      className={`w-full md:w-80 rounded-md shadow-lg ${getColumnBackgroundColor()} hover:shadow-xl transition-shadow duration-300 text-white`}>
+      className={`w-full md:w-80 rounded-md shadow-lg ${getColumnBackgroundColor()} hover:shadow-xl transition-shadow duration-300 text-foreground`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
         <Accordion
           type="single"
@@ -691,15 +710,24 @@ function KanbanColumn({
           className="w-full"
           onValueChange={handleAccordionClick}>
           <AccordionItem value={columnId} className="border-b-0">
-            <AccordionTrigger className="text-lg font-semibold flex items-center justify-between w-full hover:no-underline py-2 px-2 rounded hover:bg-gray-700 transition-colors">
-               <div className="flex items-center gap-2">
-                 {icon}
-                 <span>{tasks.length}  {displayTitle}</span>
-               </div>
-            </AccordionTrigger>
+             <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                     <AccordionTrigger className="text-lg font-semibold flex items-center justify-between w-full hover:no-underline py-2 px-2 rounded hover:bg-muted transition-colors">
+                       <div className="flex items-center gap-2">
+                         {icon}
+                         <span>{tasks.length}  {displayTitle}</span>
+                       </div>
+                     </AccordionTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                     <p>{tooltipText}</p>
+                  </TooltipContent>
+                </Tooltip>
+             </TooltipProvider>
             <AccordionContent className="pt-2 px-2">
               {tasks.length === 0 ? (
-                <div className="text-sm text-gray-400 italic py-4 text-center">
+                <div className="text-sm text-muted-foreground italic py-4 text-center">
                   No hay tareas en esta sección.
                 </div>
               ) : (
@@ -708,7 +736,7 @@ function KanbanColumn({
                     <Button
                       key={task.id}
                       variant="ghost"
-                      className="w-full justify-start hover:bg-gray-700 text-left py-2 px-3 rounded transition-colors text-sm"
+                      className="w-full justify-start hover:bg-muted text-left py-2 px-3 rounded transition-colors text-sm text-foreground" // Ensure text is visible
                       onClick={() => onTaskClick(task, columnId)}>
                       {index + 1}. {task.title}
                     </Button>
@@ -746,26 +774,26 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
     : false;
   const isOverdue = task.dueDate ? isPast(task.dueDate) : false;
 
-  let dueDateClassName = 'text-gray-400'; // Default color
+  let dueDateClassName = 'text-muted-foreground'; // Default muted color
   if (isOverdue) {
-    dueDateClassName = 'text-red-500 font-semibold'; // Overdue tasks in bold red
+    dueDateClassName = 'text-destructive font-semibold'; // Use destructive color from theme
   } else if (isCloseToDueDate) {
-    dueDateClassName = 'text-yellow-500'; // Tasks close to due date in yellow
+    dueDateClassName = 'text-yellow-500'; // Keep yellow for warning, maybe adjust later
   }
 
   return (
-     <Card className="bg-gray-800 rounded-lg shadow-md border border-gray-700 p-4 mt-4 text-white">
+     <Card className="bg-card rounded-lg shadow-md border border-border p-4 mt-4 text-foreground">
       <CardContent className="flex flex-col gap-2 pb-0">
         <div className="text-sm">
-          <strong className="text-gray-300">Título:</strong> {task.title}
+          <strong className="text-foreground/80">Título:</strong> {task.title}
         </div>
         <div className="text-sm">
-          <strong className="text-gray-300">Descripción:</strong>{' '}
+          <strong className="text-foreground/80">Descripción:</strong>{' '}
           {task.description}
         </div>
         {task.dueDate && (
           <div className="text-sm">
-            <strong className="text-gray-300">Fecha:</strong>{' '}
+            <strong className="text-foreground/80">Fecha:</strong>{' '}
             <span className={dueDateClassName}>
                {/* Ensure task.dueDate is a valid Date object before formatting */}
               {task.dueDate instanceof Date ? format(task.dueDate, 'PPP', {locale: es}) : 'Fecha inválida'}
@@ -776,7 +804,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
         )}
       </CardContent>
       <CardContent className="pt-4">
-        <div className="flex justify-around mt-2 border-t border-gray-700 pt-3">
+        <div className="flex justify-around mt-2 border-t border-border pt-3">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -785,7 +813,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
                   variant="ghost"
                   onClick={() => moveTask(task.id, from, 'Pendiente')}
                   className={cn(
-                    'hover:bg-blue-800 text-blue-400',
+                    'hover:bg-yellow-500/20 text-yellow-500', // Yellow for pending
                     from === 'Pendiente' && 'opacity-50 cursor-not-allowed'
                   )}
                   disabled={from === 'Pendiente'}>
@@ -801,7 +829,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
                   variant="ghost"
                   onClick={() => moveTask(task.id, from, 'En Progreso')}
                   className={cn(
-                    'hover:bg-yellow-800 text-yellow-400',
+                    'hover:bg-blue-500/20 text-blue-500', // Blue for in progress
                     from === 'En Progreso' && 'opacity-50 cursor-not-allowed'
                   )}
                   disabled={from === 'En Progreso'}>
@@ -817,7 +845,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
                   variant="ghost"
                   onClick={() => moveTask(task.id, from, 'Completada')}
                   className={cn(
-                    'hover:bg-green-800 text-green-400',
+                    'hover:bg-green-500/20 text-green-500', // Green for completed
                     from === 'Completada' && 'opacity-50 cursor-not-allowed'
                   )}
                   disabled={from === 'Completada'}>
@@ -832,7 +860,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
                   size="icon"
                   variant="ghost"
                   onClick={() => confirmDeleteTask(task.id, from)}
-                  className="hover:bg-red-800 text-red-400">
+                   className="hover:bg-destructive/20 text-destructive"> // Destructive color for delete
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -844,3 +872,4 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
     </Card>
   );
 }
+
