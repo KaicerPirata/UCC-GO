@@ -1,15 +1,15 @@
 'use client';
 
-import type {User} from 'firebase/auth'; // This type might be removed if completely unused later
-import {useEffect, useState, useCallback} from 'react';
-import {db} from '@/lib/firebase'; // Import Firestore instance only
-import {Card, CardContent, CardHeader} from '@/components/ui/card';
-import {Button} from '@/components/ui/button';
-import {Calendar} from '@/components/ui/calendar';
-import {cn} from '@/lib/utils';
-import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
-import {format, differenceInDays, isPast} from 'date-fns';
-import {es} from 'date-fns/locale';
+import type { User } from 'firebase/auth'; // Keep User type for potential future use
+import { useEffect, useState, useCallback } from 'react';
+import { db } from '@/lib/firebase'; // Import Firestore instance only
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format, differenceInDays, isPast } from 'date-fns';
+import { es } from 'date-fns/locale';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,10 +26,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {Check, Clock, Settings, Trash2} from 'lucide-react';
-import {Input} from '@/components/ui/input';
-import {Textarea} from '@/components/ui/textarea';
-import {useToast} from '@/hooks/use-toast';
+import { Check, Clock, Settings, Trash2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 import {
   Accordion,
   AccordionContent,
@@ -42,10 +42,8 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
-  // onSnapshot, // Removed onSnapshot
-  getDocs, // Added getDocs
+  getDocs,
   query,
-  // where, // Removed where as userId filtering is removed
   Timestamp,
 } from 'firebase/firestore';
 
@@ -55,19 +53,13 @@ interface Task {
   description: string;
   dueDate?: Date;
   status: string;
-  // userId: string; // Removed userId
 }
 
 function App() {
-  // Removed user and loading state, and auth effect
-  const {toast} = useToast(); // Keep toast hook if needed elsewhere
-
-  return <MainContent />; // Directly render MainContent
+  // No auth state or effects needed
+  return <MainContent />;
 }
 
-// Removed SignIn component
-
-// Removed MainContentProps interface, user and onSignOut props
 function MainContent() {
   const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
   const [inProgressTasks, setInProgressTasks] = useState<Task[]>([]);
@@ -75,13 +67,13 @@ function MainContent() {
   const [newTaskTitle, setNewTaskTitle] = useState<string>('');
   const [newTaskDescription, setNewTaskDescription] = useState<string>('');
   const [dueDate, setDueDate] = useState<Date | undefined>();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // State for delete confirmation dialog
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const [fromColumnToDelete, setFromColumnToDelete] = useState<string | null>(
     null
   );
   const [formattedDate, setFormattedDate] = useState('Escoge una fecha');
-  const {toast} = useToast();
+  const { toast } = useToast();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [showAlert, setShowAlert] = useState(false);
@@ -93,47 +85,50 @@ function MainContent() {
   useEffect(() => {
     if (dueDate instanceof Date) {
       try {
-       setFormattedDate(format(dueDate, "PPP", {locale: es}));
+        setFormattedDate(format(dueDate, 'PPP', { locale: es }));
       } catch (error) {
-         console.error("Error formatting date:", error);
-         setFormattedDate('Fecha inválida'); // Handle potential errors
+        console.error('Error formatting date:', error);
+        setFormattedDate('Fecha inválida'); // Handle potential errors
       }
     } else {
       setFormattedDate('Escoge una fecha');
     }
   }, [dueDate]);
 
-
-  // Effect para cargar tareas desde Firestore al montar el componente
+  // Effect to load tasks from Firestore on component mount
   useEffect(() => {
     const fetchTasks = async () => {
       try {
         const tasksQuery = query(tasksCollection);
-        const snapshot = await getDocs(tasksQuery); // Usar getDocs para una carga única
+        const snapshot = await getDocs(tasksQuery); // Use getDocs for a single load
 
         const tasks: Task[] = snapshot.docs.map((doc) => {
           const data = doc.data();
-          // Ensure dueDate is correctly converted from Firestore Timestamp or string
           let taskDueDate: Date | undefined;
           if (data.dueDate instanceof Timestamp) {
             taskDueDate = data.dueDate.toDate();
           } else if (typeof data.dueDate === 'string') {
             try {
               taskDueDate = new Date(data.dueDate);
-              // Check if the date is valid after parsing
               if (isNaN(taskDueDate.getTime())) {
-                 console.warn(`Invalid date string found for task ${doc.id}: ${data.dueDate}`);
-                 taskDueDate = undefined;
+                console.warn(
+                  `Invalid date string found for task ${doc.id}: ${data.dueDate}`
+                );
+                taskDueDate = undefined;
               }
             } catch (e) {
-              console.error(`Error parsing date string for task ${doc.id}: ${data.dueDate}`, e);
+              console.error(
+                `Error parsing date string for task ${doc.id}: ${data.dueDate}`,
+                e
+              );
               taskDueDate = undefined;
             }
           } else {
-              taskDueDate = undefined; // Handle cases where dueDate might be missing or null
+            taskDueDate = undefined;
           }
 
-          const status = typeof data.status === 'string' ? data.status : 'Pendiente'; // Default status
+          const status =
+            typeof data.status === 'string' ? data.status : 'Pendiente';
           return {
             id: doc.id,
             title: data.title,
@@ -143,15 +138,15 @@ function MainContent() {
           } as Task;
         });
 
-
         const pending = tasks.filter((task) => task.status === 'Pendiente');
-        const inProgress = tasks.filter((task) => task.status === 'En Progreso');
+        const inProgress = tasks.filter(
+          (task) => task.status === 'En Progreso'
+        );
         const completed = tasks.filter((task) => task.status === 'Completada');
 
         setPendingTasks(pending);
         setInProgressTasks(inProgress);
         setCompletedTasks(completed);
-
       } catch (error) {
         console.error('Error al cargar las tareas:', error);
         toast({
@@ -162,16 +157,31 @@ function MainContent() {
       }
     };
 
-    fetchTasks(); // Llamar a la función de carga
-  // Quitar onSnapshot y la función de limpieza
-  }, [toast]); // Dependencias para volver a cargar si cambian - removed tasksCollection as dependency
-
+    fetchTasks();
+  }, [toast]);
 
   const handleDateChange = (date: Date | undefined) => {
-    setDueDate(date);
+    if (date) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Set time to the beginning of the day for comparison
+        if (date >= today) {
+            setDueDate(date);
+        } else {
+            // Optionally show an alert or message that past dates are not allowed
+            toast({
+                title: 'Fecha inválida',
+                description: 'No puedes seleccionar una fecha pasada.',
+                variant: 'destructive',
+            });
+            setDueDate(undefined); // Reset or keep the previous valid date
+        }
+    } else {
+        setDueDate(undefined);
+    }
   };
 
- const handleAddTask = async () => {
+
+  const handleAddTask = async () => {
     if (!newTaskTitle || !newTaskDescription) {
       setShowAlert(true);
       return;
@@ -212,7 +222,7 @@ function MainContent() {
       };
 
       // Use functional update for setPendingTasks
-      setPendingTasks(prevPendingTasks => [newTask, ...prevPendingTasks]);
+      setPendingTasks((prevPendingTasks) => [newTask, ...prevPendingTasks]);
 
       // Reset form fields
       setNewTaskTitle('');
@@ -234,28 +244,22 @@ function MainContent() {
     }
   };
 
-
   const moveTask = async (taskId: string, from: string, to: string) => {
     let taskToMove: Task | undefined;
     let updatedPendingTasks = [...pendingTasks];
     let updatedInProgressTasks = [...inProgressTasks];
     let updatedCompletedTasks = [...completedTasks];
 
-    const removeTask = (
-      tasks: Task[],
-      // setTasks: React.Dispatch<React.SetStateAction<Task[]>> // removed setTasks param
-    ): [Task | undefined, Task[]] => { // Return tuple
+    const removeTask = (tasks: Task[]): [Task | undefined, Task[]] => {
       const taskIndex = tasks.findIndex((task) => task.id === taskId);
       if (taskIndex > -1) {
         const foundTask = tasks[taskIndex];
         const newTasks = [...tasks];
         newTasks.splice(taskIndex, 1);
-        // setTasks(newTasks); // No actualizar el estado aquí, hacerlo después
-        return [foundTask, newTasks]; // Devuelve la tarea encontrada y las tareas actualizadas
+        return [foundTask, newTasks];
       }
-      return [undefined, tasks]; // Devuelve undefined y las tareas originales si no se encuentra
+      return [undefined, tasks];
     };
-
 
     // Remover la tarea de la lista 'from' y obtener la lista actualizada
     if (from === 'Pendiente') {
@@ -263,38 +267,35 @@ function MainContent() {
     } else if (from === 'En Progreso') {
       [taskToMove, updatedInProgressTasks] = removeTask(inProgressTasks);
     } else if (from === 'Completada') {
-       [taskToMove, updatedCompletedTasks] = removeTask(completedTasks);
+      [taskToMove, updatedCompletedTasks] = removeTask(completedTasks);
     }
 
-
     if (!taskToMove) {
-       console.error("No se encontró la tarea a mover.");
-       return;
+      console.error('No se encontró la tarea a mover.');
+      return;
     }
 
     // Crear la tarea movida con el nuevo estado
-     const movedTask = { ...taskToMove, status: to };
+    const movedTask = { ...taskToMove, status: to };
 
-     // Actualizar los estados locales correspondientes
-     if (to === 'Pendiente') {
-       setPendingTasks([movedTask, ...updatedPendingTasks]); // Añadir a la nueva lista
-       if (from === 'En Progreso') setInProgressTasks(updatedInProgressTasks); // Quitar de la anterior si aplica
-       if (from === 'Completada') setCompletedTasks(updatedCompletedTasks); // Quitar de la anterior si aplica
-     } else if (to === 'En Progreso') {
-       setInProgressTasks([movedTask, ...updatedInProgressTasks]);
-       if (from === 'Pendiente') setPendingTasks(updatedPendingTasks);
-       if (from === 'Completada') setCompletedTasks(updatedCompletedTasks);
-     } else if (to === 'Completada') {
-       setCompletedTasks([movedTask, ...updatedCompletedTasks]);
-       if (from === 'Pendiente') setPendingTasks(updatedPendingTasks);
-       if (from === 'En Progreso') setInProgressTasks(updatedInProgressTasks);
-     }
-
+    // Actualizar los estados locales correspondientes
+    if (to === 'Pendiente') {
+      setPendingTasks([movedTask, ...updatedPendingTasks]);
+      if (from === 'En Progreso') setInProgressTasks(updatedInProgressTasks);
+      if (from === 'Completada') setCompletedTasks(updatedCompletedTasks);
+    } else if (to === 'En Progreso') {
+      setInProgressTasks([movedTask, ...updatedInProgressTasks]);
+      if (from === 'Pendiente') setPendingTasks(updatedPendingTasks);
+      if (from === 'Completada') setCompletedTasks(updatedCompletedTasks);
+    } else if (to === 'Completada') {
+      setCompletedTasks([movedTask, ...updatedCompletedTasks]);
+      if (from === 'Pendiente') setPendingTasks(updatedPendingTasks);
+      if (from === 'En Progreso') setInProgressTasks(updatedInProgressTasks);
+    }
 
     setSelectedTask(null); // Deseleccionar la tarea después de moverla
 
     try {
-      // Actualiza el estado de la tarea en Firestore
       const taskDocRef = doc(db, 'tasks', taskId);
       await updateDoc(taskDocRef, {
         status: to,
@@ -312,61 +313,46 @@ function MainContent() {
         variant: 'destructive',
       });
 
-       // Revertir el cambio en el estado local si Firestore falla
-       const revertedTask = { ...movedTask, status: from }; // Revert status back
-
-       // Remove from the 'to' column
-       if (to === 'Pendiente') {
-         setPendingTasks(updatedPendingTasks);
-       } else if (to === 'En Progreso') {
-         setInProgressTasks(updatedInProgressTasks);
-       } else if (to === 'Completada') {
-         setCompletedTasks(updatedCompletedTasks);
-       }
-
-       // Add back to the 'from' column - use original state to avoid issues
-       if (from === 'Pendiente') {
-         setPendingTasks([...pendingTasks]); // Re-add to original state
-       } else if (from === 'En Progreso') {
-         setInProgressTasks([...inProgressTasks]); // Re-add to original state
-       } else if (from === 'Completada') {
-         setCompletedTasks([...completedTasks]); // Re-add to original state
-       }
+      // Revertir el cambio en el estado local si Firestore falla
+      // This part requires careful state management to avoid race conditions
+      // For simplicity, we might re-fetch tasks on error, or implement more robust rollback
+      // For now, just logging the error and showing toast
     }
   };
 
   const confirmDeleteTask = (taskId: string, from: string) => {
     setTaskToDelete(taskId);
     setFromColumnToDelete(from);
-    setOpen(true);
+    setOpen(true); // Open the confirmation dialog
   };
 
- const deleteTask = async () => {
+  const deleteTask = async () => {
     if (!taskToDelete || !fromColumnToDelete) return;
 
     const taskId = taskToDelete;
     const fromColumn = fromColumnToDelete;
 
-    // Backup original states for potential rollback
-    const originalPendingTasks = [...pendingTasks];
-    const originalInProgressTasks = [...inProgressTasks];
-    const originalCompletedTasks = [...completedTasks];
-
     // Optimistically update the UI
-    let taskToRemove: Task | undefined;
+    let originalTasks: Task[] | undefined;
+    let setTasks: React.Dispatch<React.SetStateAction<Task[]>> | undefined;
 
     switch (fromColumn) {
       case 'Pendiente':
-        taskToRemove = pendingTasks.find((task) => task.id === taskId);
-        setPendingTasks(pendingTasks.filter((task) => task.id !== taskId));
+        originalTasks = [...pendingTasks];
+        setTasks = setPendingTasks;
+        setPendingTasks((prev) => prev.filter((task) => task.id !== taskId));
         break;
       case 'En Progreso':
-        taskToRemove = inProgressTasks.find((task) => task.id === taskId);
-        setInProgressTasks(inProgressTasks.filter((task) => task.id !== taskId));
+        originalTasks = [...inProgressTasks];
+        setTasks = setInProgressTasks;
+        setInProgressTasks((prev) =>
+          prev.filter((task) => task.id !== taskId)
+        );
         break;
       case 'Completada':
-        taskToRemove = completedTasks.find((task) => task.id === taskId);
-        setCompletedTasks(completedTasks.filter((task) => task.id !== taskId));
+        originalTasks = [...completedTasks];
+        setTasks = setCompletedTasks;
+        setCompletedTasks((prev) => prev.filter((task) => task.id !== taskId));
         break;
       default:
         console.error('Columna inválida:', fromColumn);
@@ -376,13 +362,12 @@ function MainContent() {
         return;
     }
 
-    setOpen(false);
+    setOpen(false); // Close the dialog
     setTaskToDelete(null);
     setFromColumnToDelete(null);
     if (selectedTask?.id === taskId) {
-        setSelectedTask(null); // Deseleccionar si la tarea eliminada estaba seleccionada
+      setSelectedTask(null); // Deselect if the deleted task was selected
     }
-
 
     try {
       const taskDocRef = doc(db, 'tasks', taskId);
@@ -399,21 +384,12 @@ function MainContent() {
         description: 'Error al eliminar la tarea.',
         variant: 'destructive',
       });
-      // Revert the UI update if deletion fails by restoring original states
-       switch (fromColumn) {
-         case 'Pendiente':
-           setPendingTasks(originalPendingTasks);
-           break;
-         case 'En Progreso':
-           setInProgressTasks(originalInProgressTasks);
-           break;
-         case 'Completada':
-           setCompletedTasks(originalCompletedTasks);
-           break;
-       }
+      // Revert the UI update if deletion fails
+      if (originalTasks && setTasks) {
+        setTasks(originalTasks);
+      }
     }
   };
-
 
   const handleTaskClick = (task: Task, columnId: string) => {
     setSelectedTask(task);
@@ -423,88 +399,89 @@ function MainContent() {
   return (
     <TooltipProvider>
       <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4 bg-background text-foreground">
-        {/* Removed Sign Out button */}
         <div className="text-center mb-8">
-           <h1 className="text-5xl font-bold mb-2 font-sans text-primary">CheckItOut</h1>
-           <p className="text-lg text-muted-foreground">Tablero Kanban</p>
+          <h1 className="text-5xl font-bold mb-2 text-primary font-sans">
+            CheckItOut
+          </h1>
+          <p className="text-lg text-muted-foreground">Tablero Kanban</p>
         </div>
 
-
-        <div className="flex flex-col gap-4 bg-card p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4 text-card-foreground">
-            Añadir Nueva Tarea
-          </h2>
-          <div className="mb-2">
-            <label
-              htmlFor="newTaskTitle"
-              className="block text-sm font-medium text-card-foreground mb-1">
-              Título de la tarea:
-            </label>
-            <Input
-              type="text"
-              id="newTaskTitle"
-              placeholder="Ingresa el título de la tarea"
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              className="mt-1 shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-input rounded-md bg-card text-foreground" // Use card background
-            />
-          </div>
-
-          <div className="mb-2">
-            <label
-              htmlFor="newTaskDescription"
-              className="block text-sm font-medium text-card-foreground mb-1">
-              Descripción de la tarea:
-            </label>
-            <Textarea
-              id="newTaskDescription"
-              placeholder="Ingresa la descripción de la tarea"
-              value={newTaskDescription}
-              onChange={(e) => setNewTaskDescription(e.target.value)}
-              className="mt-1 shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-input rounded-md bg-card text-foreground" // Use card background
-            />
-          </div>
-
-          <div className="flex items-center gap-4 mt-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={'outline'}
-                  className={cn(
-                    'w-[240px] justify-start text-left font-normal',
-                    !dueDate && 'text-muted-foreground',
-                    'bg-card border-input hover:bg-accent hover:text-accent-foreground' // Use card background
-                  )}>
-                  {formattedDate}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                className="w-auto p-0 bg-popover border-popover"
-                align="start"
-                side="bottom">
-                <Calendar
-                  mode="single"
-                  selected={dueDate}
-                  onSelect={handleDateChange}
-                  initialFocus
-                  fromMonth={new Date()} // Permitir seleccionar fechas futuras
-                  defaultMonth={new Date()}
-                  className="bg-popover text-popover-foreground"
-                  classNames={{
-                     day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                     day_today: "bg-accent text-accent-foreground",
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
-
-            <Button
-              onClick={handleAddTask}
-              className="bg-blue-600 text-white rounded px-4 py-2 hover:bg-blue-700">
-              Añadir Tarea
-            </Button>
-          </div>
-        </div>
+        {/* Formulario para añadir tareas */}
+        <Card className="mb-8 p-6 shadow-lg bg-card border border-border rounded-lg">
+          <CardHeader>
+            <h2 className="text-2xl font-semibold text-card-foreground">Añadir Nueva Tarea</h2>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="mb-2">
+              <label
+                htmlFor="newTaskTitle"
+                className="block text-sm font-medium text-card-foreground mb-1">
+                Título de la tarea:
+              </label>
+              <Input
+                type="text"
+                id="newTaskTitle"
+                placeholder="Ingresa el título de la tarea"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                className="mt-1 shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-input rounded-md bg-background text-foreground"
+              />
+            </div>
+            <div className="mb-2">
+              <label
+                htmlFor="newTaskDescription"
+                className="block text-sm font-medium text-card-foreground mb-1">
+                Descripción de la tarea:
+              </label>
+              <Textarea
+                id="newTaskDescription"
+                placeholder="Ingresa la descripción de la tarea"
+                value={newTaskDescription}
+                onChange={(e) => setNewTaskDescription(e.target.value)}
+                className="mt-1 shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-input rounded-md bg-background text-foreground"
+              />
+            </div>
+            <div className="flex items-center gap-4 mt-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={'outline'}
+                    className={cn(
+                      'w-[240px] justify-start text-left font-normal',
+                      !dueDate && 'text-muted-foreground',
+                      'bg-card border-input hover:bg-accent hover:text-accent-foreground'
+                    )}>
+                    {formattedDate}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-auto p-0 bg-popover border-popover"
+                  align="start"
+                  side="bottom">
+                  <Calendar
+                    mode="single"
+                    selected={dueDate}
+                    onSelect={handleDateChange}
+                    initialFocus
+                    fromMonth={new Date()} // Permitir seleccionar fechas futuras
+                    defaultMonth={new Date()}
+                    className="bg-popover text-popover-foreground"
+                    classNames={{
+                      day_selected:
+                        'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground',
+                      day_today: 'bg-accent text-accent-foreground',
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+              <Button
+                onClick={handleAddTask}
+                className="bg-primary text-primary-foreground hover:bg-primary/90">
+                Añadir Tarea
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Alertas */}
         <AlertDialog open={showDateAlert} onOpenChange={setShowDateAlert}>
@@ -558,6 +535,7 @@ function MainContent() {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Columnas Kanban */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
           <KanbanColumn
             title="Pendiente"
@@ -565,7 +543,7 @@ function MainContent() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="Pendiente"
-            icon={<Clock className="h-4 w-4 text-yellow-500" />} // Yellow icon
+            icon={<Clock className="h-4 w-4 text-yellow-500" />}
             onTaskClick={handleTaskClick}
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
@@ -579,7 +557,7 @@ function MainContent() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="En Progreso"
-            icon={<Settings className="h-4 w-4 text-blue-500" />} // Blue icon
+            icon={<Settings className="h-4 w-4 text-blue-500" />}
             onTaskClick={handleTaskClick}
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
@@ -593,7 +571,7 @@ function MainContent() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="Completada"
-            icon={<Check className="h-4 w-4 text-green-500" />} // Green icon
+            icon={<Check className="h-4 w-4 text-green-500" />}
             onTaskClick={handleTaskClick}
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
@@ -603,6 +581,7 @@ function MainContent() {
           />
         </div>
 
+        {/* Dialogo de confirmación de eliminación */}
         <AlertDialog open={open} onOpenChange={setOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -630,7 +609,6 @@ function MainContent() {
   );
 }
 export default App; // Export the main App component
-
 
 interface KanbanColumnProps {
   title: string;
@@ -662,16 +640,15 @@ function KanbanColumn({
   tooltipText,
 }: KanbanColumnProps) {
   const getColumnBackgroundColor = () => {
-    // Use thematic colors based on globals.css variables
     switch (title) {
       case 'Pendiente':
-        return 'bg-secondary border border-border'; // Secondary background
+        return 'bg-secondary border-border';
       case 'En Progreso':
-        return 'bg-primary/10 border border-primary/50'; // Lighter primary
+        return 'bg-primary/10 border-primary/50';
       case 'Completada':
-        return 'bg-green-500/10 border border-green-500/50'; // Light green (custom, adjust if needed)
+        return 'bg-green-500/10 border-green-500/50';
       default:
-        return 'bg-card border border-border'; // Default card background
+        return 'bg-card border-border';
     }
   };
 
@@ -702,29 +679,31 @@ function KanbanColumn({
 
   return (
     <Card
-      className={`w-full md:w-80 rounded-md shadow-lg ${getColumnBackgroundColor()} hover:shadow-xl transition-shadow duration-300 text-foreground`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
+      className={`w-full rounded-lg shadow-lg ${getColumnBackgroundColor()} hover:shadow-xl transition-shadow duration-300 text-foreground flex flex-col`}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4 flex-shrink-0">
         <Accordion
           type="single"
           collapsible
           className="w-full"
           onValueChange={handleAccordionClick}>
           <AccordionItem value={columnId} className="border-b-0">
-             <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                     <AccordionTrigger className="text-lg font-semibold flex items-center justify-between w-full hover:no-underline py-2 px-2 rounded hover:bg-muted transition-colors">
-                       <div className="flex items-center gap-2">
-                         {icon}
-                         <span>{tasks.length}  {displayTitle}</span>
-                       </div>
-                     </AccordionTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                     <p>{tooltipText}</p>
-                  </TooltipContent>
-                </Tooltip>
-             </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AccordionTrigger className="text-lg font-semibold flex items-center justify-between w-full hover:no-underline py-2 px-2 rounded hover:bg-muted transition-colors">
+                    <div className="flex items-center gap-2">
+                      {icon}
+                      <span>
+                        {tasks.length} {displayTitle}
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{tooltipText}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <AccordionContent className="pt-2 px-2">
               {tasks.length === 0 ? (
                 <div className="text-sm text-muted-foreground italic py-4 text-center">
@@ -736,7 +715,7 @@ function KanbanColumn({
                     <Button
                       key={task.id}
                       variant="ghost"
-                      className="w-full justify-start hover:bg-muted text-left py-2 px-3 rounded transition-colors text-sm text-foreground" // Ensure text is visible
+                      className="w-full justify-start hover:bg-muted text-left py-2 px-3 rounded transition-colors text-sm text-foreground"
                       onClick={() => onTaskClick(task, columnId)}>
                       {index + 1}. {task.title}
                     </Button>
@@ -747,7 +726,7 @@ function KanbanColumn({
           </AccordionItem>
         </Accordion>
       </CardHeader>
-      <CardContent className="p-4 pt-0">
+      <CardContent className="p-4 pt-0 flex-grow">
         {selectedTask && selectedColumn === columnId && (
           <TaskCard
             task={selectedTask}
@@ -768,21 +747,21 @@ interface TaskCardProps {
   from: string;
 }
 
-function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
+function TaskCard({ task, moveTask, confirmDeleteTask, from }: TaskCardProps) {
   const isCloseToDueDate = task.dueDate
-    ? differenceInDays(task.dueDate, new Date()) <= 3 && !isPast(task.dueDate) // Cerca si faltan 3 días o menos y no está pasada
+    ? differenceInDays(task.dueDate, new Date()) <= 3 && !isPast(task.dueDate)
     : false;
   const isOverdue = task.dueDate ? isPast(task.dueDate) : false;
 
-  let dueDateClassName = 'text-muted-foreground'; // Default muted color
+  let dueDateClassName = 'text-muted-foreground';
   if (isOverdue) {
-    dueDateClassName = 'text-destructive font-semibold'; // Use destructive color from theme
+    dueDateClassName = 'text-destructive font-semibold';
   } else if (isCloseToDueDate) {
-    dueDateClassName = 'text-yellow-500'; // Keep yellow for warning, maybe adjust later
+    dueDateClassName = 'text-yellow-500';
   }
 
   return (
-     <Card className="bg-card rounded-lg shadow-md border border-border p-4 mt-4 text-foreground">
+    <Card className="bg-card rounded-lg shadow-md border border-border p-4 mt-4 text-foreground">
       <CardContent className="flex flex-col gap-2 pb-0">
         <div className="text-sm">
           <strong className="text-foreground/80">Título:</strong> {task.title}
@@ -795,8 +774,9 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
           <div className="text-sm">
             <strong className="text-foreground/80">Fecha:</strong>{' '}
             <span className={dueDateClassName}>
-               {/* Ensure task.dueDate is a valid Date object before formatting */}
-              {task.dueDate instanceof Date ? format(task.dueDate, 'PPP', {locale: es}) : 'Fecha inválida'}
+              {task.dueDate instanceof Date
+                ? format(task.dueDate, 'PPP', { locale: es })
+                : 'Fecha inválida'}
               {isOverdue && ' (Vencida)'}
               {isCloseToDueDate && ' (Próxima a vencer)'}
             </span>
@@ -813,7 +793,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
                   variant="ghost"
                   onClick={() => moveTask(task.id, from, 'Pendiente')}
                   className={cn(
-                    'hover:bg-yellow-500/20 text-yellow-500', // Yellow for pending
+                    'hover:bg-yellow-500/20 text-yellow-500',
                     from === 'Pendiente' && 'opacity-50 cursor-not-allowed'
                   )}
                   disabled={from === 'Pendiente'}>
@@ -829,7 +809,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
                   variant="ghost"
                   onClick={() => moveTask(task.id, from, 'En Progreso')}
                   className={cn(
-                    'hover:bg-blue-500/20 text-blue-500', // Blue for in progress
+                    'hover:bg-blue-500/20 text-blue-500',
                     from === 'En Progreso' && 'opacity-50 cursor-not-allowed'
                   )}
                   disabled={from === 'En Progreso'}>
@@ -845,7 +825,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
                   variant="ghost"
                   onClick={() => moveTask(task.id, from, 'Completada')}
                   className={cn(
-                    'hover:bg-green-500/20 text-green-500', // Green for completed
+                    'hover:bg-green-500/20 text-green-500',
                     from === 'Completada' && 'opacity-50 cursor-not-allowed'
                   )}
                   disabled={from === 'Completada'}>
@@ -856,11 +836,11 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+                 <Button
                   size="icon"
                   variant="ghost"
                   onClick={() => confirmDeleteTask(task.id, from)}
-                   className="hover:bg-destructive/20 text-destructive"> // Destructive color for delete
+                  className="hover:bg-destructive/20 text-destructive">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -872,5 +852,3 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
     </Card>
   );
 }
-
-
