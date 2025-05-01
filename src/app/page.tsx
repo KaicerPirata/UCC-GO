@@ -545,7 +545,7 @@ function MainContent() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="Pendiente"
-            icon={<Clock className="h-4 w-4 text-yellow-500" />}
+            icon={<Clock className="h-6 w-6 text-yellow-500" />} // Increased icon size
             onTaskClick={handleTaskClick}
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
@@ -559,7 +559,7 @@ function MainContent() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="En Progreso"
-            icon={<Settings className="h-4 w-4 text-blue-500" />}
+            icon={<Settings className="h-6 w-6 text-blue-500" />} // Increased icon size
             onTaskClick={handleTaskClick}
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
@@ -573,7 +573,7 @@ function MainContent() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="Completada"
-            icon={<Check className="h-4 w-4 text-green-500" />}
+            icon={<Check className="h-6 w-6 text-green-500" />} // Increased icon size
             onTaskClick={handleTaskClick}
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
@@ -854,3 +854,4 @@ function TaskCard({ task, moveTask, confirmDeleteTask, from }: TaskCardProps) {
     </Card>
   );
 }
+
