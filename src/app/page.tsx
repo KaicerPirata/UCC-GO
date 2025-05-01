@@ -1,14 +1,8 @@
 'use client';
 
-import type {User} from 'firebase/auth';
+import type {User} from 'firebase/auth'; // This type might be removed if completely unused later
 import {useEffect, useState, useCallback} from 'react';
-import {auth, db} from '@/lib/firebase'; // Import Firestore instance
-import {
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut,
-} from 'firebase/auth';
+import {db} from '@/lib/firebase'; // Import Firestore instance only
 import {Card, CardContent, CardHeader} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {Calendar} from '@/components/ui/calendar';
@@ -50,7 +44,7 @@ import {
   deleteDoc,
   onSnapshot,
   query,
-  where,
+  // where, // Removed where as userId filtering is removed
   Timestamp,
 } from 'firebase/firestore';
 
@@ -60,90 +54,20 @@ interface Task {
   description: string;
   dueDate?: Date;
   status: string;
-  userId: string; // Añadir userId
+  // userId: string; // Removed userId
 }
 
 function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const {toast} = useToast();
+  // Removed user and loading state, and auth effect
+  const {toast} = useToast(); // Keep toast hook if needed elsewhere
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
-    return () => unsubscribe(); // Cleanup subscription on unmount
-  }, []);
-
-  const handleSignIn = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-      toast({title: 'Éxito', description: 'Has iniciado sesión correctamente.'});
-    } catch (error) {
-      console.error('Error al iniciar sesión:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo iniciar sesión.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      toast({title: 'Éxito', description: 'Has cerrado sesión correctamente.'});
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo cerrar sesión.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        Cargando...
-      </div>
-    );
-  }
-
-  return (
-    <>
-      {user ? (
-        <MainContent user={user} onSignOut={handleSignOut} />
-      ) : (
-        <SignIn onSignIn={handleSignIn} />
-      )}
-    </>
-  );
+  return <MainContent />; // Directly render MainContent
 }
 
-function SignIn({onSignIn}: {onSignIn: () => void}) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground">
-      <div className="text-center mb-8">
-        <h1 className="text-5xl font-bold mb-2 font-sans">CheckItOut</h1>
-      </div>
-      <p className="mb-6 text-lg">Inicia sesión para continuar</p>
-      <Button onClick={onSignIn} className="bg-blue-600 hover:bg-blue-700">
-        Iniciar sesión con Google
-      </Button>
-    </div>
-  );
-}
+// Removed SignIn component
 
-interface MainContentProps {
-  user: User;
-  onSignOut: () => void;
-}
-
-function MainContent({user, onSignOut}: MainContentProps) {
+// Removed MainContentProps interface, user and onSignOut props
+function MainContent() {
   const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
   const [inProgressTasks, setInProgressTasks] = useState<Task[]>([]);
   const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
@@ -167,21 +91,27 @@ function MainContent({user, onSignOut}: MainContentProps) {
 
   useEffect(() => {
     if (dueDate instanceof Date) {
-      setFormattedDate(format(dueDate, 'PPP', {locale: es}));
+      try {
+       setFormattedDate(format(dueDate, "PPP", {locale: es}));
+      } catch (error) {
+         console.error("Error formatting date:", error);
+         setFormattedDate('Fecha inválida'); // Handle potential errors
+      }
     } else {
       setFormattedDate('Escoge una fecha');
     }
   }, [dueDate]);
 
+
   // Effect para escuchar cambios en Firestore
   useEffect(() => {
-    if (!user) return; // No hacer nada si el usuario no está autenticado
+    // Removed user check
 
-    // Crear consulta para obtener solo las tareas del usuario actual
-    const userTasksQuery = query(tasksCollection, where('userId', '==', user.uid));
+    // Get all tasks, removed userId filter
+    const tasksQuery = query(tasksCollection);
 
     const unsubscribe = onSnapshot(
-      userTasksQuery,
+      tasksQuery, // Use the unfiltered query
       (snapshot) => {
         const tasks: Task[] = snapshot.docs.map((doc) => {
           const data = doc.data();
@@ -195,7 +125,7 @@ function MainContent({user, onSignOut}: MainContentProps) {
             title: data.title,
             description: data.description,
             status: status,
-            userId: data.userId,
+            // userId: data.userId, // Removed userId
             dueDate: dueDate,
           } as Task; // Asegurar que los campos requeridos están
         });
@@ -222,7 +152,8 @@ function MainContent({user, onSignOut}: MainContentProps) {
     );
 
     return () => unsubscribe(); // Cleanup function al desmontar
-  }, [user, tasksCollection, toast]); // Dependencias: user, tasksCollection, toast
+  // Removed user dependency
+  }, [tasksCollection, toast]);
 
 
   const handleDateChange = (date: Date | undefined) => {
@@ -240,10 +171,7 @@ function MainContent({user, onSignOut}: MainContentProps) {
       return;
     }
 
-    if (!user) {
-       toast({title: "Error", description: "Debes estar autenticado para añadir tareas.", variant: "destructive"});
-       return;
-    }
+    // Removed user check
 
     // Verificar si ya existe una tarea con el mismo título
     const taskExists = [...pendingTasks, ...inProgressTasks, ...completedTasks].some(
@@ -259,9 +187,10 @@ function MainContent({user, onSignOut}: MainContentProps) {
       await addDoc(tasksCollection, {
         title: newTaskTitle,
         description: newTaskDescription,
-        dueDate: dueDate.toISOString(),
+        // Ensure dueDate is not undefined before calling toISOString
+        dueDate: dueDate ? dueDate.toISOString() : null,
         status: 'Pendiente', // Todas las nuevas tareas se agregan como "Pendiente"
-        userId: user.uid, // Guardar el ID del usuario
+        // userId: user.uid, // Removed userId
       });
 
       // Limpiar los campos después de añadir
@@ -283,6 +212,7 @@ function MainContent({user, onSignOut}: MainContentProps) {
     }
   };
 
+
   const moveTask = async (taskId: string, from: string, to: string) => {
     let taskToMove: Task | undefined;
     let updatedPendingTasks = [...pendingTasks];
@@ -292,26 +222,28 @@ function MainContent({user, onSignOut}: MainContentProps) {
     const removeTask = (
       tasks: Task[],
       setTasks: React.Dispatch<React.SetStateAction<Task[]>>
-    ) => {
+    ): [Task | undefined, Task[]] => { // Return tuple
       const taskIndex = tasks.findIndex((task) => task.id === taskId);
       if (taskIndex > -1) {
-        taskToMove = tasks[taskIndex];
+        const foundTask = tasks[taskIndex];
         const newTasks = [...tasks];
         newTasks.splice(taskIndex, 1);
         setTasks(newTasks); // Actualiza el estado local inmediatamente
-        return newTasks; // Devuelve las tareas actualizadas
+        return [foundTask, newTasks]; // Devuelve la tarea encontrada y las tareas actualizadas
       }
-      return tasks; // Devuelve las tareas originales si no se encuentra
+      return [undefined, tasks]; // Devuelve undefined y las tareas originales si no se encuentra
     };
+
 
     // Remover la tarea de la lista 'from' y actualizar el estado local
     if (from === 'Pendiente') {
-      updatedPendingTasks = removeTask(pendingTasks, setPendingTasks);
+      [taskToMove, updatedPendingTasks] = removeTask(pendingTasks, setPendingTasks);
     } else if (from === 'En Progreso') {
-      updatedInProgressTasks = removeTask(inProgressTasks, setInProgressTasks);
+      [taskToMove, updatedInProgressTasks] = removeTask(inProgressTasks, setInProgressTasks);
     } else if (from === 'Completada') {
-      updatedCompletedTasks = removeTask(completedTasks, setCompletedTasks);
+       [taskToMove, updatedCompletedTasks] = removeTask(completedTasks, setCompletedTasks);
     }
+
 
     if (!taskToMove) {
        console.error("No se encontró la tarea a mover.");
@@ -319,14 +251,16 @@ function MainContent({user, onSignOut}: MainContentProps) {
     }
 
     // Añadir la tarea a la nueva lista 'to' en el estado local
-    taskToMove.status = to;
-    if (to === 'Pendiente') {
-      setPendingTasks([taskToMove, ...updatedPendingTasks]);
-    } else if (to === 'En Progreso') {
-      setInProgressTasks([taskToMove, ...updatedInProgressTasks]);
-    } else if (to === 'Completada') {
-      setCompletedTasks([taskToMove, ...updatedCompletedTasks]);
-    }
+    const movedTask = { ...taskToMove, status: to }; // Create a new object with updated status
+
+     if (to === 'Pendiente') {
+       setPendingTasks([movedTask, ...updatedPendingTasks]);
+     } else if (to === 'En Progreso') {
+       setInProgressTasks([movedTask, ...updatedInProgressTasks]);
+     } else if (to === 'Completada') {
+       setCompletedTasks([movedTask, ...updatedCompletedTasks]);
+     }
+
 
     setSelectedTask(null); // Deseleccionar la tarea después de moverla
 
@@ -349,24 +283,26 @@ function MainContent({user, onSignOut}: MainContentProps) {
         variant: 'destructive',
       });
 
-      // Revertir el cambio en el estado local si Firestore falla
-      // Volver a añadir la tarea a la columna original y quitarla de la nueva
-      taskToMove.status = from; // Restaurar estado original
+       // Revertir el cambio en el estado local si Firestore falla
+       const revertedTask = { ...movedTask, status: from }; // Revert status back
+
+       // Remove from the 'to' column
        if (to === 'Pendiente') {
-         setPendingTasks(pendingTasks.filter(t => t.id !== taskId));
+         setPendingTasks(updatedPendingTasks); // Use the state before adding
        } else if (to === 'En Progreso') {
-         setInProgressTasks(inProgressTasks.filter(t => t.id !== taskId));
+         setInProgressTasks(updatedInProgressTasks); // Use the state before adding
        } else if (to === 'Completada') {
-         setCompletedTasks(completedTasks.filter(t => t.id !== taskId));
+         setCompletedTasks(updatedCompletedTasks); // Use the state before adding
        }
 
-      if (from === 'Pendiente') {
-        setPendingTasks([taskToMove, ...pendingTasks.filter(t => t.id !== taskId)]);
-      } else if (from === 'En Progreso') {
-        setInProgressTasks([taskToMove, ...inProgressTasks.filter(t => t.id !== taskId)]);
-      } else if (from === 'Completada') {
-        setCompletedTasks([taskToMove, ...completedTasks.filter(t => t.id !== taskId)]);
-      }
+       // Add back to the 'from' column
+       if (from === 'Pendiente') {
+         setPendingTasks([revertedTask, ...updatedPendingTasks]);
+       } else if (from === 'En Progreso') {
+         setInProgressTasks([revertedTask, ...updatedInProgressTasks]);
+       } else if (from === 'Completada') {
+         setCompletedTasks([revertedTask, ...updatedCompletedTasks]);
+       }
     }
   };
 
@@ -376,35 +312,36 @@ function MainContent({user, onSignOut}: MainContentProps) {
     setOpen(true);
   };
 
-  const deleteTask = async () => {
+ const deleteTask = async () => {
     if (!taskToDelete || !fromColumnToDelete) return;
 
     const taskId = taskToDelete;
     const fromColumn = fromColumnToDelete;
 
+    // Backup original states for potential rollback
+    const originalPendingTasks = [...pendingTasks];
+    const originalInProgressTasks = [...inProgressTasks];
+    const originalCompletedTasks = [...completedTasks];
+
     // Optimistically update the UI
     let taskToRemove: Task | undefined;
-    let updatedTasks: Task[] = [];
 
     switch (fromColumn) {
       case 'Pendiente':
-        updatedTasks = pendingTasks.filter((task) => task.id !== taskId);
         taskToRemove = pendingTasks.find((task) => task.id === taskId);
-        setPendingTasks(updatedTasks);
+        setPendingTasks(pendingTasks.filter((task) => task.id !== taskId));
         break;
       case 'En Progreso':
-        updatedTasks = inProgressTasks.filter((task) => task.id !== taskId);
         taskToRemove = inProgressTasks.find((task) => task.id === taskId);
-        setInProgressTasks(updatedTasks);
+        setInProgressTasks(inProgressTasks.filter((task) => task.id !== taskId));
         break;
       case 'Completada':
-        updatedTasks = completedTasks.filter((task) => task.id !== taskId);
         taskToRemove = completedTasks.find((task) => task.id === taskId);
-        setCompletedTasks(updatedTasks);
+        setCompletedTasks(completedTasks.filter((task) => task.id !== taskId));
         break;
       default:
         console.error('Columna inválida:', fromColumn);
-        setOpen(false); // Asegúrate de cerrar el diálogo
+        setOpen(false);
         setTaskToDelete(null);
         setFromColumnToDelete(null);
         return;
@@ -413,7 +350,10 @@ function MainContent({user, onSignOut}: MainContentProps) {
     setOpen(false);
     setTaskToDelete(null);
     setFromColumnToDelete(null);
-    setSelectedTask(null); // Deseleccionar si la tarea eliminada estaba seleccionada
+    if (selectedTask?.id === taskId) {
+        setSelectedTask(null); // Deseleccionar si la tarea eliminada estaba seleccionada
+    }
+
 
     try {
       const taskDocRef = doc(db, 'tasks', taskId);
@@ -430,20 +370,18 @@ function MainContent({user, onSignOut}: MainContentProps) {
         description: 'Error al eliminar la tarea.',
         variant: 'destructive',
       });
-      // Revert the UI update if deletion fails
-      if (taskToRemove) {
-        switch (fromColumn) {
-          case 'Pendiente':
-            setPendingTasks([taskToRemove, ...updatedTasks]);
-            break;
-          case 'En Progreso':
-            setInProgressTasks([taskToRemove, ...updatedTasks]);
-            break;
-          case 'Completada':
-            setCompletedTasks([taskToRemove, ...updatedTasks]);
-            break;
-        }
-      }
+      // Revert the UI update if deletion fails by restoring original states
+       switch (fromColumn) {
+         case 'Pendiente':
+           setPendingTasks(originalPendingTasks);
+           break;
+         case 'En Progreso':
+           setInProgressTasks(originalInProgressTasks);
+           break;
+         case 'Completada':
+           setCompletedTasks(originalCompletedTasks);
+           break;
+       }
     }
   };
 
@@ -455,14 +393,11 @@ function MainContent({user, onSignOut}: MainContentProps) {
 
   return (
     <TooltipProvider>
-      <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4">
-        <div className="flex justify-between items-center mb-8">
-          <div className="text-center flex-grow">
-             <h1 className="text-5xl font-bold mb-2 font-sans text-white">CheckItOut</h1>
-          </div>
-          <Button onClick={onSignOut} variant="destructive">
-            Cerrar Sesión
-          </Button>
+      <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4 bg-background text-foreground">
+        {/* Removed Sign Out button */}
+        <div className="text-center mb-8">
+           <h1 className="text-5xl font-bold mb-2 font-sans">CheckItOut</h1>
+           <p className="text-lg text-muted-foreground">Tablero Kanban</p>
         </div>
 
 
@@ -749,7 +684,7 @@ function KanbanColumn({
             <AccordionTrigger className="text-lg font-semibold flex items-center justify-between w-full hover:no-underline py-2 px-2 rounded hover:bg-gray-700 transition-colors">
                <div className="flex items-center gap-2">
                  {icon}
-                 <span>{tasks.length} {displayTitle}</span>
+                 <span>{tasks.length}  {displayTitle}</span>
                </div>
             </AccordionTrigger>
             <AccordionContent className="pt-2 px-2">
@@ -809,7 +744,7 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
   }
 
   return (
-    <Card className="bg-gray-800 rounded-lg shadow-md border border-gray-700 p-4 mt-4 text-white">
+     <Card className="bg-gray-800 rounded-lg shadow-md border border-gray-700 p-4 mt-4 text-white">
       <CardContent className="flex flex-col gap-2 pb-0">
         <div className="text-sm">
           <strong className="text-gray-300">Título:</strong> {task.title}
@@ -822,7 +757,8 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
           <div className="text-sm">
             <strong className="text-gray-300">Fecha:</strong>{' '}
             <span className={dueDateClassName}>
-              {format(task.dueDate, 'PPP', {locale: es})}
+               {/* Ensure task.dueDate is a valid Date object before formatting */}
+              {task.dueDate instanceof Date ? format(task.dueDate, 'PPP', {locale: es}) : 'Fecha inválida'}
               {isOverdue && ' (Vencida)'}
               {isCloseToDueDate && ' (Próxima a vencer)'}
             </span>
@@ -898,5 +834,3 @@ function TaskCard({task, moveTask, confirmDeleteTask, from}: TaskCardProps) {
     </Card>
   );
 }
-
-
