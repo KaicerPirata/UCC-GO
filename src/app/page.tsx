@@ -42,7 +42,8 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
-  onSnapshot,
+  // onSnapshot, // Removed onSnapshot
+  getDocs, // Added getDocs
   query,
   // where, // Removed where as userId filtering is removed
   Timestamp,
@@ -103,35 +104,28 @@ function MainContent() {
   }, [dueDate]);
 
 
-  // Effect para escuchar cambios en Firestore
+  // Effect para cargar tareas desde Firestore al montar el componente
   useEffect(() => {
-    // Removed user check
+    const fetchTasks = async () => {
+      try {
+        const tasksQuery = query(tasksCollection);
+        const snapshot = await getDocs(tasksQuery); // Usar getDocs para una carga única
 
-    // Get all tasks, removed userId filter
-    const tasksQuery = query(tasksCollection);
-
-    const unsubscribe = onSnapshot(
-      tasksQuery, // Use the unfiltered query
-      (snapshot) => {
         const tasks: Task[] = snapshot.docs.map((doc) => {
           const data = doc.data();
-          // Convertir Timestamp de Firestore a Date de JavaScript
           const dueDate = data.dueDate instanceof Timestamp
             ? data.dueDate.toDate()
-            : data.dueDate ? new Date(data.dueDate) : undefined; // Fallback por si acaso
+            : data.dueDate ? new Date(data.dueDate) : undefined;
           const status = typeof data.status === 'string' ? data.status : 'Pendiente';
           return {
             id: doc.id,
             title: data.title,
             description: data.description,
             status: status,
-            // userId: data.userId, // Removed userId
             dueDate: dueDate,
-          } as Task; // Asegurar que los campos requeridos están
+          } as Task;
         });
 
-
-        // Separar las tareas en las diferentes listas
         const pending = tasks.filter((task) => task.status === 'Pendiente');
         const inProgress = tasks.filter((task) => task.status === 'En Progreso');
         const completed = tasks.filter((task) => task.status === 'Completada');
@@ -139,21 +133,20 @@ function MainContent() {
         setPendingTasks(pending);
         setInProgressTasks(inProgress);
         setCompletedTasks(completed);
-      },
-      (error) => {
-        // Manejar errores al escuchar
-        console.error('Error al escuchar tareas:', error);
+
+      } catch (error) {
+        console.error('Error al cargar las tareas:', error);
         toast({
           title: 'Error de conexión',
           description: 'No se pudieron cargar las tareas.',
           variant: 'destructive',
         });
       }
-    );
+    };
 
-    return () => unsubscribe(); // Cleanup function al desmontar
-  // Removed user dependency
-  }, [tasksCollection, toast]);
+    fetchTasks(); // Llamar a la función de carga
+  // Quitar onSnapshot y la función de limpieza
+  }, [tasksCollection, toast]); // Dependencias para volver a cargar si cambian
 
 
   const handleDateChange = (date: Date | undefined) => {
@@ -171,11 +164,10 @@ function MainContent() {
       return;
     }
 
-    // Removed user check
-
     // Verificar si ya existe una tarea con el mismo título
-    const taskExists = [...pendingTasks, ...inProgressTasks, ...completedTasks].some(
-      (task) => task.title === newTaskTitle
+    const allTasks = [...pendingTasks, ...inProgressTasks, ...completedTasks];
+    const taskExists = allTasks.some(
+      (task) => task.title.toLowerCase() === newTaskTitle.toLowerCase()
     );
 
     if (taskExists) {
@@ -183,17 +175,28 @@ function MainContent() {
       return;
     }
 
-    try {
-      await addDoc(tasksCollection, {
-        title: newTaskTitle,
-        description: newTaskDescription,
-        // Ensure dueDate is not undefined before calling toISOString
-        dueDate: dueDate ? dueDate.toISOString() : null,
-        status: 'Pendiente', // Todas las nuevas tareas se agregan como "Pendiente"
-        // userId: user.uid, // Removed userId
-      });
+    const newTaskData = {
+      title: newTaskTitle,
+      description: newTaskDescription,
+      dueDate: dueDate.toISOString(), // Guardar como ISO string
+      status: 'Pendiente',
+    };
 
-      // Limpiar los campos después de añadir
+
+    try {
+     const docRef = await addDoc(tasksCollection, newTaskData);
+
+      // Crear la nueva tarea para el estado local
+      const newTask: Task = {
+        ...newTaskData,
+        id: docRef.id,
+        dueDate: dueDate, // Usar el objeto Date para el estado local
+      };
+
+      // Actualizar el estado local inmediatamente
+      setPendingTasks([newTask, ...pendingTasks]);
+
+
       setNewTaskTitle('');
       setNewTaskDescription('');
       setDueDate(undefined);
@@ -207,7 +210,7 @@ function MainContent() {
       toast({
         title: 'Error!',
         description: 'Error al agregar la tarea.',
-        variant: 'destructive', // Marcar como error
+        variant: 'destructive',
       });
     }
   };
@@ -228,14 +231,14 @@ function MainContent() {
         const foundTask = tasks[taskIndex];
         const newTasks = [...tasks];
         newTasks.splice(taskIndex, 1);
-        setTasks(newTasks); // Actualiza el estado local inmediatamente
+        // setTasks(newTasks); // No actualizar el estado aquí, hacerlo después
         return [foundTask, newTasks]; // Devuelve la tarea encontrada y las tareas actualizadas
       }
       return [undefined, tasks]; // Devuelve undefined y las tareas originales si no se encuentra
     };
 
 
-    // Remover la tarea de la lista 'from' y actualizar el estado local
+    // Remover la tarea de la lista 'from' y obtener la lista actualizada
     if (from === 'Pendiente') {
       [taskToMove, updatedPendingTasks] = removeTask(pendingTasks, setPendingTasks);
     } else if (from === 'En Progreso') {
@@ -250,15 +253,22 @@ function MainContent() {
        return;
     }
 
-    // Añadir la tarea a la nueva lista 'to' en el estado local
-    const movedTask = { ...taskToMove, status: to }; // Create a new object with updated status
+    // Crear la tarea movida con el nuevo estado
+     const movedTask = { ...taskToMove, status: to };
 
+     // Actualizar los estados locales correspondientes
      if (to === 'Pendiente') {
-       setPendingTasks([movedTask, ...updatedPendingTasks]);
+       setPendingTasks([movedTask, ...updatedPendingTasks]); // Añadir a la nueva lista
+       if (from === 'En Progreso') setInProgressTasks(updatedInProgressTasks); // Quitar de la anterior si aplica
+       if (from === 'Completada') setCompletedTasks(updatedCompletedTasks); // Quitar de la anterior si aplica
      } else if (to === 'En Progreso') {
        setInProgressTasks([movedTask, ...updatedInProgressTasks]);
+       if (from === 'Pendiente') setPendingTasks(updatedPendingTasks);
+       if (from === 'Completada') setCompletedTasks(updatedCompletedTasks);
      } else if (to === 'Completada') {
        setCompletedTasks([movedTask, ...updatedCompletedTasks]);
+       if (from === 'Pendiente') setPendingTasks(updatedPendingTasks);
+       if (from === 'En Progreso') setInProgressTasks(updatedInProgressTasks);
      }
 
 
@@ -288,20 +298,20 @@ function MainContent() {
 
        // Remove from the 'to' column
        if (to === 'Pendiente') {
-         setPendingTasks(updatedPendingTasks); // Use the state before adding
+         setPendingTasks(updatedPendingTasks);
        } else if (to === 'En Progreso') {
-         setInProgressTasks(updatedInProgressTasks); // Use the state before adding
+         setInProgressTasks(updatedInProgressTasks);
        } else if (to === 'Completada') {
-         setCompletedTasks(updatedCompletedTasks); // Use the state before adding
+         setCompletedTasks(updatedCompletedTasks);
        }
 
        // Add back to the 'from' column
        if (from === 'Pendiente') {
-         setPendingTasks([revertedTask, ...updatedPendingTasks]);
+         setPendingTasks([revertedTask, ...pendingTasks]); // Re-add to original position (approx)
        } else if (from === 'En Progreso') {
-         setInProgressTasks([revertedTask, ...updatedInProgressTasks]);
+         setInProgressTasks([revertedTask, ...inProgressTasks]);
        } else if (from === 'Completada') {
-         setCompletedTasks([revertedTask, ...updatedCompletedTasks]);
+         setCompletedTasks([revertedTask, ...completedTasks]);
        }
     }
   };
