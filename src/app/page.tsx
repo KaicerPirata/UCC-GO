@@ -9,7 +9,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, differenceInDays, isPast } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { es } from 'date-fns/locale'; // Import Spanish locale
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Check, Clock, Settings, Trash2 } from 'lucide-react';
+import { Check, Settings, Trash2, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -85,6 +85,7 @@ function MainContent() {
   useEffect(() => {
     if (dueDate instanceof Date) {
       try {
+        // Format date using Spanish locale
         setFormattedDate(format(dueDate, 'PPP', { locale: es }));
       } catch (error) {
         console.error('Error formatting date:', error);
@@ -466,6 +467,7 @@ function MainContent() {
                     fromMonth={new Date()} // Permitir seleccionar fechas futuras
                     defaultMonth={new Date()}
                     className="bg-popover text-popover-foreground"
+                    locale={es} // Pass the Spanish locale
                     classNames={{
                       day_selected:
                         'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground',
@@ -694,7 +696,7 @@ function KanbanColumn({
                     <div className="flex items-center gap-2">
                       {icon}
                       <span>
-                        {tasks.length} {displayTitle}
+                         {tasks.length} {displayTitle}
                       </span>
                     </div>
                   </AccordionTrigger>
@@ -775,7 +777,7 @@ function TaskCard({ task, moveTask, confirmDeleteTask, from }: TaskCardProps) {
             <strong className="text-foreground/80">Fecha:</strong>{' '}
             <span className={dueDateClassName}>
               {task.dueDate instanceof Date
-                ? format(task.dueDate, 'PPP', { locale: es })
+                ? format(task.dueDate, 'PPP', { locale: es }) // Format date using Spanish locale
                 : 'Fecha inválida'}
               {isOverdue && ' (Vencida)'}
               {isCloseToDueDate && ' (Próxima a vencer)'}
