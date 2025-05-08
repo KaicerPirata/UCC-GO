@@ -298,7 +298,7 @@ function MainContent() {
     const newTaskData = {
       title: newTaskTitle,
       description: newTaskDescription,
-      dueDate: dueDate ? dueDate.toISOString() : null, // Save as ISO string or null in Firestore
+      dueDate: dueDate ? Timestamp.fromDate(dueDate) : null, // Save as Firestore Timestamp or null
       status: 'Pendiente',
       responsible: newResponsiblePerson || null, // Add responsible person
     };
@@ -508,10 +508,10 @@ function MainContent() {
     const taskId = taskToEdit.id;
     const updatedTask: Task = { ...taskToEdit, ...updatedTaskData };
 
-    // Prepare data for Firestore (convert Date to ISO string)
+    // Prepare data for Firestore (convert Date to Timestamp or null)
     const firestoreData = {
       ...updatedTaskData,
-      dueDate: updatedTaskData.dueDate ? updatedTaskData.dueDate.toISOString() : null,
+      dueDate: updatedTaskData.dueDate ? Timestamp.fromDate(updatedTaskData.dueDate) : null,
       responsible: updatedTaskData.responsible || null, // Handle potentially undefined responsible
     };
 
@@ -623,7 +623,7 @@ function MainContent() {
                     </SelectContent>
                 </Select>
                  <div className="mt-4 space-y-2">
-                     <Label className="block text-sm font-medium text-card-foreground mb-1">Gestionar Responsables:</Label>
+                     {/* Removed "Gestionar Responsables" label */}
                      <div className="flex items-center gap-2">
                          <Input
                             type="text"
@@ -632,10 +632,11 @@ function MainContent() {
                             onChange={(e) => setNewPersonName(e.target.value)}
                              className="flex-grow shadow-sm focus:ring-primary focus:border-primary sm:text-sm border-input rounded-md bg-background text-foreground"
                         />
-                        <Button onClick={handleAddPerson} size="icon" variant="outline" aria-label="Añadir persona">
-                            <Plus className="h-4 w-4"/>
+                        <Button onClick={handleAddPerson} size="sm" variant="outline" aria-label="Añadir persona"> {/* Changed to size="sm" */}
+                           Añadir {/* Changed icon to text */}
                         </Button>
                      </div>
+                      {/* Kept the list display for managing people */}
                      <div className="mt-2 space-y-1 max-h-32 overflow-y-auto border rounded-md p-2 bg-muted/30">
                         {responsiblePeople.length > 0 ? responsiblePeople.map((person) => (
                             <div key={person} className="flex items-center justify-between text-sm">
@@ -1139,6 +1140,12 @@ function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople, setRe
     const [newPersonNameModal, setNewPersonNameModal] = useState<string>(''); // State for adding new person within modal
     const { toast } = useToast(); // Get toast function
 
+    // Need access to task lists to check assignment status in handleDeletePersonInModal
+    // This requires lifting state or context. We'll assume access via props or context for now.
+    // Let's pass the task lists down if needed, or simplify the check.
+    // For simplicity, we'll omit the check here, assuming the global list management handles it.
+    // const { pendingTasks, inProgressTasks, completedTasks } = useTaskLists(); // Hypothetical hook
+
     // Update local state when the task prop changes (e.g., opening the modal for a different task)
     useEffect(() => {
         setEditedTitle(task.title);
@@ -1201,19 +1208,7 @@ function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople, setRe
     };
 
      const handleDeletePersonInModal = (personToDelete: string) => {
-        // Similar logic as handleDeletePerson, but updates the global list via setResponsiblePeople
-         const isAssigned = [...pendingTasks, ...inProgressTasks, ...completedTasks].some(
-            task => task.responsible === personToDelete && task.id !== taskToEdit?.id // Check other tasks
-        );
-         if (isAssigned) {
-              toast({
-                 title: 'Persona asignada',
-                 description: `${personToDelete} está asignado/a a otras tareas. Eliminarlo/a de esta lista no lo/a desasignará.`,
-                 variant: 'default',
-                 duration: 5000
-            })
-         }
-
+        // Simplified - directly modifies the list via the passed setter
         setResponsiblePeople(prev => prev.filter(person => person !== personToDelete));
 
         // If the currently selected responsible person for the *edited* task is the one being deleted, reset it
@@ -1253,14 +1248,6 @@ function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople, setRe
         });
         onClose(); // Close modal after saving
     };
-
-    // Need access to task lists to check assignment status in handleDeletePersonInModal
-    // This is getting complex, consider lifting state management or using context if needed elsewhere
-    // For now, we'll just show a generic warning if deleted person might be assigned elsewhere.
-    const pendingTasks = MainContent.prototype.state?.pendingTasks || [];
-    const inProgressTasks = MainContent.prototype.state?.inProgressTasks || [];
-    const completedTasks = MainContent.prototype.state?.completedTasks || [];
-    const taskToEdit = MainContent.prototype.state?.taskToEdit; // Assuming this context exists which is not ideal
 
 
     return (
@@ -1387,5 +1374,3 @@ function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople, setRe
         </Dialog>
     );
 }
-
-
