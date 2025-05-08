@@ -1,10 +1,11 @@
 
+
 'use client';
 
 import type { User } from 'firebase/auth'; // Keep User type for potential future use
 import { useEffect, useState, useCallback } from 'react';
 import { db } from '@/lib/firebase'; // Import Firestore instance only
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -160,7 +161,7 @@ function MainContent() {
     };
 
     fetchTasks();
-  }, [toast]);
+  }, [toast]); // Removed tasksCollection dependency as it's constant
 
   const handleDateChange = (date: Date | undefined) => {
     if (date) {
@@ -394,8 +395,13 @@ function MainContent() {
   };
 
   const handleTaskClick = (task: Task, columnId: string) => {
-    setSelectedTask(task);
-    setSelectedColumn(columnId);
+     if (selectedTask?.id === task.id && selectedColumn === columnId) {
+      setSelectedTask(null); // Deselect if clicking the same task again
+      setSelectedColumn(null);
+    } else {
+      setSelectedTask(task);
+      setSelectedColumn(columnId);
+    }
   };
 
   return (
@@ -479,7 +485,7 @@ function MainContent() {
               </Popover>
               <Button
                 onClick={handleAddTask}
-                className="bg-primary text-primary-foreground hover:bg-primary/90">
+                className="bg-blue-500 text-white hover:bg-blue-600"> {/* Changed button color */}
                 Añadir Tarea
               </Button>
             </div>
@@ -546,7 +552,7 @@ function MainContent() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="Pendiente"
-            icon={<Clock className="h-8 w-8 text-yellow-500" />} // Reduced icon size
+            icon={<Clock className="h-8 w-8 text-yellow-500" />}
             onTaskClick={handleTaskClick}
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
@@ -560,7 +566,7 @@ function MainContent() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="En Progreso"
-            icon={<Settings className="h-8 w-8 text-blue-500" />} // Reduced icon size
+            icon={<Settings className="h-8 w-8 text-blue-500" />}
             onTaskClick={handleTaskClick}
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
@@ -574,7 +580,7 @@ function MainContent() {
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
             columnId="Completada"
-            icon={<Check className="h-8 w-8 text-green-500" />} // Reduced icon size
+            icon={<Check className="h-8 w-8 text-green-500" />}
             onTaskClick={handleTaskClick}
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
@@ -645,15 +651,16 @@ function KanbanColumn({
   const getColumnBackgroundColor = () => {
     switch (title) {
       case 'Pendiente':
-        return 'bg-secondary border-border';
+        return 'bg-yellow-100 border-yellow-300 text-yellow-800'; // Example: Yellowish theme
       case 'En Progreso':
-        return 'bg-primary/10 border-primary/50';
+        return 'bg-blue-100 border-blue-300 text-blue-800'; // Example: Bluish theme
       case 'Completada':
-        return 'bg-green-500/10 border-green-500/50';
+        return 'bg-green-100 border-green-300 text-green-800'; // Example: Greenish theme
       default:
-        return 'bg-card border-border';
+        return 'bg-card border-border text-card-foreground';
     }
   };
+
 
   let displayTitle = '';
   switch (title) {
@@ -670,19 +677,20 @@ function KanbanColumn({
       displayTitle = title;
   }
 
-  const handleAccordionClick = () => {
-    if (selectedColumn === columnId) {
-      setSelectedTask(null);
-      return;
-    }
-    if (selectedTask) {
-      setSelectedTask(null);
-    }
+  const handleAccordionClick = (value: string) => {
+    // The accordion manages its own open/close state based on value.
+    // We only need to potentially close the selected task if the accordion itself closes.
+     if (!value && selectedColumn === columnId) { // If accordion closes and it was the selected one
+       setSelectedTask(null);
+       setSelectedColumn(null);
+     }
+     // If a different accordion opens, the selectedTask will be handled by onTaskClick
   };
+
 
   return (
     <Card
-      className={`w-full rounded-lg shadow-lg ${getColumnBackgroundColor()} hover:shadow-xl transition-shadow duration-300 text-foreground flex flex-col`}>
+      className={`w-full rounded-lg shadow-lg ${getColumnBackgroundColor()} hover:shadow-xl transition-shadow duration-300 flex flex-col`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4 flex-shrink-0">
         <Accordion
           type="single"
@@ -693,7 +701,7 @@ function KanbanColumn({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <AccordionTrigger className="text-lg font-semibold flex items-center justify-between w-full hover:no-underline py-2 px-2 rounded hover:bg-muted transition-colors">
+                  <AccordionTrigger className="text-lg font-semibold flex items-center justify-between w-full hover:no-underline py-2 px-2 rounded hover:bg-muted/80 transition-colors">
                     <div className="flex items-center gap-2">
                       {icon}
                       <span>
@@ -709,19 +717,31 @@ function KanbanColumn({
             </TooltipProvider>
             <AccordionContent className="pt-2 px-2">
               {tasks.length === 0 ? (
-                <div className="text-sm text-muted-foreground italic py-4 text-center">
+                <div className="text-sm italic py-4 text-center">
                   No hay tareas en esta sección.
                 </div>
               ) : (
                 <div className="space-y-2 mt-2">
                   {tasks.map((task, index) => (
-                    <Button
-                      key={task.id}
-                      variant="ghost"
-                      className="w-full justify-start hover:bg-muted text-left py-2 px-3 rounded transition-colors text-sm text-foreground"
-                      onClick={() => onTaskClick(task, columnId)}>
-                      {index + 1}. {task.title}
-                    </Button>
+                    <div key={task.id} className="flex flex-col gap-1">
+                      <Button
+                        variant="ghost"
+                        className={`w-full justify-start hover:bg-muted text-left py-2 px-3 rounded transition-colors text-sm ${getColumnBackgroundColor().split(' ')[2]} ${selectedTask?.id === task.id && selectedColumn === columnId ? 'bg-muted font-semibold' : ''}`} // Use column's text color and highlight if selected
+                        onClick={() => onTaskClick(task, columnId)}>
+                         {index + 1}. {task.title}
+                      </Button>
+                      {/* Conditionally render TaskCard directly below the button if selected */}
+                      {selectedTask?.id === task.id && selectedColumn === columnId && (
+                         <div className="pl-4 pr-1 pb-2"> {/* Indent the card slightly */}
+                             <TaskCard
+                                task={selectedTask}
+                                moveTask={moveTask}
+                                confirmDeleteTask={confirmDeleteTask}
+                                from={columnId}
+                              />
+                         </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
@@ -729,19 +749,11 @@ function KanbanColumn({
           </AccordionItem>
         </Accordion>
       </CardHeader>
-      <CardContent className="p-4 pt-0 flex-grow">
-        {selectedTask && selectedColumn === columnId && (
-          <TaskCard
-            task={selectedTask}
-            moveTask={moveTask}
-            confirmDeleteTask={confirmDeleteTask}
-            from={columnId}
-          />
-        )}
-      </CardContent>
+       {/* Removed the CardContent that previously held the selected TaskCard */}
     </Card>
   );
 }
+
 
 interface TaskCardProps {
   task: Task;
@@ -764,8 +776,8 @@ function TaskCard({ task, moveTask, confirmDeleteTask, from }: TaskCardProps) {
   }
 
   return (
-    <Card className="bg-card rounded-lg shadow-md border border-border p-4 mt-4 text-foreground">
-      <CardContent className="flex flex-col gap-2 pb-0">
+     <Card className="bg-card rounded-lg shadow-md border border-border p-4 mt-1 text-card-foreground"> {/* Reduced top margin */}
+      <CardContent className="flex flex-col gap-2 pb-2"> {/* Reduced bottom padding */}
         <div className="text-sm">
           <strong className="text-foreground/80">Título:</strong> {task.title}
         </div>
@@ -786,57 +798,54 @@ function TaskCard({ task, moveTask, confirmDeleteTask, from }: TaskCardProps) {
           </div>
         )}
       </CardContent>
-      <CardContent className="pt-4">
-        <div className="flex justify-around mt-2 border-t border-border pt-3">
+      <CardFooter className="pt-3 pb-0 px-0"> {/* Adjusted padding for footer */}
+        <div className="flex justify-around w-full border-t border-border pt-3">
           <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => moveTask(task.id, from, 'Pendiente')}
-                  className={cn(
-                    'hover:bg-yellow-500/20 text-yellow-500',
-                    from === 'Pendiente' && 'opacity-50 cursor-not-allowed'
-                  )}
-                  disabled={from === 'Pendiente'}>
-                  <Clock className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Mover a Pendiente</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => moveTask(task.id, from, 'En Progreso')}
-                  className={cn(
-                    'hover:bg-blue-500/20 text-blue-500',
-                    from === 'En Progreso' && 'opacity-50 cursor-not-allowed'
-                  )}
-                  disabled={from === 'En Progreso'}>
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Mover a En Progreso</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => moveTask(task.id, from, 'Completada')}
-                  className={cn(
-                    'hover:bg-green-500/20 text-green-500',
-                    from === 'Completada' && 'opacity-50 cursor-not-allowed'
-                  )}
-                  disabled={from === 'Completada'}>
-                  <Check className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Mover a Completada</TooltipContent>
-            </Tooltip>
+             {from !== 'Pendiente' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => moveTask(task.id, from, 'Pendiente')}
+                    className="hover:bg-yellow-500/20 text-yellow-500"
+                   >
+                    <Clock className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Mover a Pendiente</TooltipContent>
+              </Tooltip>
+             )}
+             {from !== 'En Progreso' && (
+               <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => moveTask(task.id, from, 'En Progreso')}
+                     className="hover:bg-blue-500/20 text-blue-500"
+                   >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Mover a En Progreso</TooltipContent>
+              </Tooltip>
+             )}
+             {from !== 'Completada' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => moveTask(task.id, from, 'Completada')}
+                    className="hover:bg-green-500/20 text-green-500"
+                  >
+                    <Check className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Mover a Completada</TooltipContent>
+              </Tooltip>
+             )}
             <Tooltip>
               <TooltipTrigger asChild>
                  <Button
@@ -851,7 +860,7 @@ function TaskCard({ task, moveTask, confirmDeleteTask, from }: TaskCardProps) {
             </Tooltip>
           </TooltipProvider>
         </div>
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 }
