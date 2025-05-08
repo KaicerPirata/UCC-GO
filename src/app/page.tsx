@@ -562,24 +562,27 @@ function MainContent() {
     setIsEditModalOpen(true);
   };
 
-  const handleSaveChanges = async (updatedTaskData: Omit<Task, 'id' | 'status'>) => {
+  const handleSaveChanges = async (updatedTaskData: Omit<Task, 'id' | 'status' | 'responsible'>) => {
     if (!taskToEdit) return;
 
     const taskId = taskToEdit.id;
-    const updatedTask: Task = { ...taskToEdit, ...updatedTaskData };
+     // Keep the original responsible person, don't update it
+    const updatedTask: Task = { ...taskToEdit, ...updatedTaskData, responsible: taskToEdit.responsible };
+
 
     // Prepare data for Firestore (convert Date to Timestamp or null)
+    // Exclude 'responsible' from the data sent to Firestore for update
+    const { responsible, ...firestoreUpdateData } = updatedTaskData;
     const firestoreData = {
-      ...updatedTaskData,
-      dueDate: updatedTaskData.dueDate ? Timestamp.fromDate(updatedTaskData.dueDate) : null,
-      responsible: updatedTaskData.responsible || null, // Handle potentially undefined responsible
+        ...firestoreUpdateData,
+        dueDate: updatedTaskData.dueDate ? Timestamp.fromDate(updatedTaskData.dueDate) : null,
     };
 
     try {
       const taskDocRef = doc(db, 'tasks', taskId);
       await updateDoc(taskDocRef, firestoreData);
 
-      // Update local state
+      // Update local state (keeping the original responsible person)
       const updateStateTasks = (setter: React.Dispatch<React.SetStateAction<Task[]>>) => {
         setter((prevTasks) =>
           prevTasks.map((task) =>
@@ -886,8 +889,7 @@ function MainContent() {
                 task={taskToEdit}
                 onSave={handleSaveChanges}
                 responsiblePeople={responsiblePeople} // Pass responsible people list
-                onAddPerson={handleAddPerson} // Pass add function
-                onDeletePerson={handleDeletePerson} // Pass delete function
+                // Removed props related to managing people list globally as it's disabled here
             />
         )}
 
@@ -1185,10 +1187,8 @@ interface EditTaskModalProps {
     isOpen: boolean;
     onClose: () => void;
     task: Task;
-    onSave: (updatedTaskData: Omit<Task, 'id' | 'status'>) => void;
-    responsiblePeople: string[]; // Add responsible people list prop
-    onAddPerson: (name: string) => void; // Function to add a person globally
-    onDeletePerson: (name: string) => void; // Function to delete a person globally
+    onSave: (updatedTaskData: Omit<Task, 'id' | 'status' | 'responsible'>) => void; // Exclude responsible from save data
+    responsiblePeople: string[]; // Keep for display if needed, but disabled
 }
 
 function EditTaskModal({
@@ -1196,18 +1196,13 @@ function EditTaskModal({
     onClose,
     task,
     onSave,
-    responsiblePeople,
-    onAddPerson,
-    onDeletePerson,
+    responsiblePeople, // Keep for display if needed
 }: EditTaskModalProps) {
     const [editedTitle, setEditedTitle] = useState(task.title);
     const [editedDescription, setEditedDescription] = useState(task.description);
     const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(task.dueDate);
-    const [editedResponsible, setEditedResponsible] = useState<string | undefined>(task.responsible); // Add state for responsible person
     const [formattedModalDate, setFormattedModalDate] = useState<string>('Escoge una fecha');
-    const [newPersonNameModal, setNewPersonNameModal] = useState<string>(''); // State for adding new person within modal
     const { toast } = useToast(); // Get toast function
-    const [isManagePeopleOpen, setIsManagePeopleOpen] = useState(false); // State for managing people section
 
 
     // Update local state when the task prop changes (e.g., opening the modal for a different task)
@@ -1215,9 +1210,8 @@ function EditTaskModal({
         setEditedTitle(task.title);
         setEditedDescription(task.description);
         setEditedDueDate(task.dueDate);
-        // Ensure the responsible person exists in the current list, otherwise default to undefined
-        setEditedResponsible(responsiblePeople.includes(task.responsible ?? '') ? task.responsible : undefined);
-    }, [task, responsiblePeople]); // Add responsiblePeople as dependency
+        // No need to set editedResponsible as it's not editable
+    }, [task]);
 
 
     useEffect(() => {
@@ -1253,32 +1247,6 @@ function EditTaskModal({
         }
     };
 
-    const handleAddPersonInModal = () => {
-        const trimmedName = newPersonNameModal.trim();
-        if (trimmedName) {
-             // Call the global add function passed via props
-             onAddPerson(trimmedName);
-             setNewPersonNameModal(''); // Clear input
-             // The global function will handle the toast and Firestore update
-             // Optionally select the newly added person
-             setEditedResponsible(trimmedName);
-        } else {
-             toast({ title: 'Nombre vacío', description: 'Por favor, ingresa un nombre.', variant: 'destructive' });
-        }
-    };
-
-     const handleDeletePersonInModal = (personToDelete: string) => {
-        // Call the global delete function passed via props
-        onDeletePerson(personToDelete);
-        // The global function handles toast and Firestore update
-
-        // If the currently selected responsible person for the *edited* task is the one being deleted, reset it
-        if (editedResponsible === personToDelete) {
-            setEditedResponsible(undefined);
-        }
-    };
-
-
     const handleSaveClick = () => {
         if (!editedTitle || !editedDescription) {
             toast({
@@ -1296,11 +1264,11 @@ function EditTaskModal({
             });
             return;
         }
+        // Pass only the editable fields to onSave
         onSave({
             title: editedTitle,
             description: editedDescription,
             dueDate: editedDueDate,
-            responsible: editedResponsible, // Pass responsible person
         });
         onClose(); // Close modal after saving
     };
@@ -1374,53 +1342,18 @@ function EditTaskModal({
                             </PopoverContent>
                         </Popover>
                     </div>
-                     <div className="grid grid-cols-4 items-start gap-4"> {/* Changed items-center to items-start */}
-                         <Label htmlFor="edit-responsible" className="text-right pt-2"> {/* Added padding-top */}
+                     {/* Responsible Person Section - Disabled */}
+                     <div className="grid grid-cols-4 items-start gap-4">
+                         <Label className="text-right pt-2 text-muted-foreground">
                             Responsable
                         </Label>
-                         <div className="col-span-3 space-y-2"> {/* Container for select and manage section */}
-                             <Select value={editedResponsible} onValueChange={setEditedResponsible}>
-                                 <SelectTrigger id="edit-responsible" className="w-full bg-background text-foreground border-input">
-                                    <SelectValue placeholder="Selecciona una persona" />
-                                 </SelectTrigger>
-                                 <SelectContent>
-                                    {responsiblePeople.map((person) => (
-                                        <SelectItem key={person} value={person}>{person}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                             {/* Toggle Button for Manage People */}
-                              <Button variant="outline" size="sm" onClick={() => setIsManagePeopleOpen(!isManagePeopleOpen)} className="w-full">
-                                {isManagePeopleOpen ? 'Ocultar Gestión' : 'Gestionar Lista'}
-                            </Button>
-
-                             {/* Collapsible Section to manage people */}
-                             {isManagePeopleOpen && (
-                                 <div className="mt-2 space-y-2 border rounded-md p-2 bg-muted/30">
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            type="text"
-                                            placeholder="Añadir nueva persona"
-                                            value={newPersonNameModal}
-                                            onChange={(e) => setNewPersonNameModal(e.target.value)}
-                                            className="flex-grow h-8 text-sm shadow-sm focus:ring-primary focus:border-primary border-input rounded-md bg-background text-foreground"
-                                        />
-                                        <Button onClick={handleAddPersonInModal} size="icon" variant="outline" className="h-8 w-8" aria-label="Añadir persona a lista global">
-                                            <Plus className="h-4 w-4"/>
-                                        </Button>
-                                    </div>
-                                    <div className="mt-1 max-h-24 overflow-y-auto space-y-1">
-                                        {responsiblePeople.length > 0 ? responsiblePeople.map((person) => (
-                                            <div key={person} className="flex items-center justify-between text-xs">
-                                                <span>{person}</span>
-                                                <Button onClick={() => handleDeletePersonInModal(person)} size="icon" variant="ghost" className="h-5 w-5 text-destructive hover:bg-destructive/10" aria-label={`Eliminar ${person} de lista global`}>
-                                                    <X className="h-3 w-3"/>
-                                                </Button>
-                                            </div>
-                                        )) : <p className="text-xs text-muted-foreground italic text-center">No hay responsables.</p>}
-                                    </div>
-                                </div>
-                             )}
+                         <div className="col-span-3 space-y-2">
+                            <Input
+                                value={task.responsible || 'No asignado'}
+                                disabled
+                                className="w-full bg-muted/50 text-muted-foreground border-input"
+                            />
+                            <p className="text-xs text-muted-foreground italic">El responsable no se puede cambiar.</p>
                          </div>
                     </div>
                 </div>
