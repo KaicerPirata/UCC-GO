@@ -4,7 +4,7 @@
 
 import type { User } from 'firebase/auth'; // Keep User type for potential future use
 import { useEffect, useState, useCallback } from 'react';
-import { db } from '@/lib/firebase'; // Import Firestore instance only
+import { db, auth } from '@/lib/firebase'; // Import Firestore instance and auth
 import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -48,6 +48,7 @@ import {
   query,
   Timestamp,
 } from 'firebase/firestore';
+
 
 interface Task {
   id: string;
@@ -409,7 +410,7 @@ function MainContent() {
     <TooltipProvider>
       <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4 bg-background text-foreground">
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold mb-2 text-primary font-sans text-white">
+          <h1 className="text-5xl font-bold mb-2 text-primary font-sans">
              CheckItOut
           </h1>
           <p className="text-lg text-muted-foreground">Tablero Kanban</p>
@@ -875,4 +876,5 @@ function TaskCard({ task, moveTask, confirmDeleteTask, from }: TaskCardProps) {
 
 
     
+
 
