@@ -1,10 +1,9 @@
-
 'use client';
 
 import type { User } from 'firebase/auth'; // Keep User type for potential future use
 import { useEffect, useState, useCallback } from 'react';
 import { db } from '@/lib/firebase'; // Import Firestore instance
-import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardFooter, CardTitle, CardDescription } from '@/components/ui/card'; // Ensure CardTitle and CardDescription are imported
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -25,8 +24,8 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  DialogTitle as DialogTitleShadCN, // Rename import to avoid conflict
+  DialogDescription as DialogDescriptionShadCN, // Rename import
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
@@ -36,7 +35,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Check, Settings, Trash2, Clock, Pencil } from 'lucide-react'; // Added Pencil icon
+import { Check, Settings, Trash2, Clock, Pencil, User as UserIcon, Plus } from 'lucide-react'; // Added Pencil, UserIcon, Plus icon
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -57,6 +56,13 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 
 interface Task {
@@ -65,13 +71,10 @@ interface Task {
   description: string;
   dueDate?: Date;
   status: string;
+  responsible?: string; // Add responsible field
 }
 
-function App() {
-  // No auth state or effects needed
-  return <MainContent />;
-}
-
+// Removed App component, directly exporting MainContent as default
 function MainContent() {
   const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
   const [inProgressTasks, setInProgressTasks] = useState<Task[]>([]);
@@ -95,6 +98,11 @@ function MainContent() {
   // State for Edit Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+
+  // State for responsible people
+  const [responsiblePeople, setResponsiblePeople] = useState<string[]>(['Juan Perez', 'Maria Garcia', 'Carlos Lopez']); // Initial list
+  const [newResponsiblePerson, setNewResponsiblePerson] = useState<string | undefined>();
+  const [newPersonName, setNewPersonName] = useState<string>('');
 
 
   const tasksCollection = collection(db, 'tasks');
@@ -153,6 +161,7 @@ function MainContent() {
             description: data.description,
             status: status,
             dueDate: taskDueDate,
+            responsible: data.responsible || undefined, // Fetch responsible person
           } as Task;
         });
 
@@ -198,6 +207,30 @@ function MainContent() {
     }
   };
 
+  const handleAddPerson = () => {
+    const trimmedName = newPersonName.trim();
+    if (trimmedName && !responsiblePeople.includes(trimmedName)) {
+      setResponsiblePeople(prev => [...prev, trimmedName]);
+      setNewPersonName(''); // Clear input after adding
+       toast({
+        title: '¡Persona añadida!',
+        description: `${trimmedName} ha sido añadido a la lista de responsables.`,
+      });
+    } else if (!trimmedName) {
+         toast({
+            title: 'Nombre vacío',
+            description: 'Por favor, ingresa un nombre.',
+            variant: 'destructive',
+        });
+    } else {
+         toast({
+            title: 'Nombre duplicado',
+            description: `${trimmedName} ya existe en la lista.`,
+            variant: 'destructive',
+        });
+    }
+  };
+
 
   const handleAddTask = async () => {
     if (!newTaskTitle || !newTaskDescription) {
@@ -226,6 +259,7 @@ function MainContent() {
       description: newTaskDescription,
       dueDate: dueDate ? dueDate.toISOString() : null, // Save as ISO string or null in Firestore
       status: 'Pendiente',
+      responsible: newResponsiblePerson || null, // Add responsible person
     };
 
     try {
@@ -237,6 +271,7 @@ function MainContent() {
         ...newTaskData,
         id: docRef.id,
         dueDate: dueDate, // Use the Date object for local state consistency
+        responsible: newResponsiblePerson, // Use state value
       };
 
       // Use functional update for setPendingTasks
@@ -247,6 +282,7 @@ function MainContent() {
       setNewTaskDescription('');
       setDueDate(undefined);
       setFormattedDate('Escoge una fecha');
+      setNewResponsiblePerson(undefined); // Reset responsible person
 
       toast({
         title: '¡Tarea agregada!',
@@ -435,6 +471,7 @@ function MainContent() {
     const firestoreData = {
       ...updatedTaskData,
       dueDate: updatedTaskData.dueDate ? updatedTaskData.dueDate.toISOString() : null,
+      responsible: updatedTaskData.responsible || null, // Handle potentially undefined responsible
     };
 
     try {
@@ -489,24 +526,24 @@ function MainContent() {
     <TooltipProvider>
       <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4 bg-background text-foreground">
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold mb-2 text-primary font-sans">
+          <h1 className="text-5xl font-bold mb-1 text-primary font-sans">
              CheckItOut
           </h1>
-          <p className="text-lg text-muted-foreground">Tablero Kanban</p>
+           <p className="text-lg text-muted-foreground font-sans">Tablero Kanban</p>
         </div>
 
         {/* Formulario para añadir tareas */}
         <Card className="mb-8 p-6 shadow-lg bg-card border border-border rounded-lg">
           <CardHeader>
-            <h2 className="text-2xl font-semibold text-card-foreground">Añadir Nueva Tarea</h2>
+            <CardTitle className="text-2xl font-semibold text-card-foreground">Añadir Nueva Tarea</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="mb-2">
-              <label
+              <Label
                 htmlFor="newTaskTitle"
                 className="block text-sm font-medium text-card-foreground mb-1">
                 Título de la tarea:
-              </label>
+              </Label>
               <Input
                 type="text"
                 id="newTaskTitle"
@@ -517,11 +554,11 @@ function MainContent() {
               />
             </div>
             <div className="mb-2">
-              <label
+              <Label
                 htmlFor="newTaskDescription"
                 className="block text-sm font-medium text-card-foreground mb-1">
                 Descripción de la tarea:
-              </label>
+              </Label>
               <Textarea
                 id="newTaskDescription"
                 placeholder="Ingresa la descripción de la tarea"
@@ -529,6 +566,34 @@ function MainContent() {
                 onChange={(e) => setNewTaskDescription(e.target.value)}
                 className="mt-1 shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-input rounded-md bg-background text-foreground"
               />
+            </div>
+             <div className="mb-2">
+                 <Label htmlFor="responsiblePerson" className="block text-sm font-medium text-card-foreground mb-1">
+                    Responsable:
+                </Label>
+                 <Select value={newResponsiblePerson} onValueChange={setNewResponsiblePerson}>
+                    <SelectTrigger id="responsiblePerson" className="w-full mt-1 shadow-sm focus:ring-primary focus:border-primary sm:text-sm border-input rounded-md bg-background text-foreground">
+                        <SelectValue placeholder="Selecciona una persona" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {responsiblePeople.map((person) => (
+                            <SelectItem key={person} value={person}>{person}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                 <div className="mt-2 flex items-center gap-2">
+                     <Input
+                        type="text"
+                        placeholder="Añadir nueva persona"
+                        value={newPersonName}
+                        onChange={(e) => setNewPersonName(e.target.value)}
+                        className="flex-grow shadow-sm focus:ring-primary focus:border-primary sm:text-sm border-input rounded-md bg-background text-foreground"
+                    />
+                    <Button onClick={handleAddPerson} size="icon" variant="outline">
+                        <Plus className="h-4 w-4"/>
+                        <span className="sr-only">Añadir persona</span>
+                    </Button>
+                 </div>
             </div>
             <div className="flex items-center gap-4 mt-2">
               <Popover>
@@ -642,6 +707,7 @@ function MainContent() {
             setSelectedColumn={setSelectedColumn}
             dropdownTitle="Tareas Pendientes"
             tooltipText="Tareas por hacer"
+            responsiblePeople={responsiblePeople} // Pass responsible people list
           />
           <KanbanColumn
             title="En Progreso"
@@ -658,6 +724,7 @@ function MainContent() {
             setSelectedColumn={setSelectedColumn}
             dropdownTitle="Tareas En Progreso"
             tooltipText="Tareas en ejecución"
+            responsiblePeople={responsiblePeople} // Pass responsible people list
           />
           <KanbanColumn
             title="Completada"
@@ -674,6 +741,7 @@ function MainContent() {
             setSelectedColumn={setSelectedColumn}
             dropdownTitle="Tareas Completadas"
             tooltipText="Tareas finalizadas"
+            responsiblePeople={responsiblePeople} // Pass responsible people list
           />
         </div>
 
@@ -711,6 +779,7 @@ function MainContent() {
                 }}
                 task={taskToEdit}
                 onSave={handleSaveChanges}
+                responsiblePeople={responsiblePeople} // Pass responsible people list
             />
         )}
 
@@ -718,7 +787,7 @@ function MainContent() {
     </TooltipProvider>
   );
 }
-export default App; // Export the main App component
+export default MainContent; // Export MainContent as default
 
 interface KanbanColumnProps {
   title: string;
@@ -735,6 +804,7 @@ interface KanbanColumnProps {
   setSelectedColumn: (columnId: string | null) => void; // Added this prop
   dropdownTitle: string;
   tooltipText: string;
+  responsiblePeople: string[]; // Add responsible people list prop
 }
 
 function KanbanColumn({
@@ -752,6 +822,7 @@ function KanbanColumn({
   setSelectedColumn, // Receive the prop
   dropdownTitle,
   tooltipText,
+  responsiblePeople, // Receive responsible people list
 }: KanbanColumnProps) {
   const getColumnBackgroundColor = () => {
     switch (title) {
@@ -904,6 +975,12 @@ function TaskCard({ task, moveTask, confirmDeleteTask, openEditModal, from }: Ta
             </span>
           </div>
         )}
+        {task.responsible && (
+             <div className="text-sm">
+                 <strong className="text-foreground/80">Responsable:</strong>{' '}
+                 <span>{task.responsible}</span>
+             </div>
+         )}
       </CardContent>
       <CardFooter className="pt-3 pb-0 px-0"> {/* Adjusted padding for footer */}
         <div className="flex justify-around w-full border-t border-border pt-3">
@@ -993,19 +1070,23 @@ interface EditTaskModalProps {
     onClose: () => void;
     task: Task;
     onSave: (updatedTaskData: Omit<Task, 'id' | 'status'>) => void;
+    responsiblePeople: string[]; // Add responsible people list prop
 }
 
-function EditTaskModal({ isOpen, onClose, task, onSave }: EditTaskModalProps) {
+function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople }: EditTaskModalProps) {
     const [editedTitle, setEditedTitle] = useState(task.title);
     const [editedDescription, setEditedDescription] = useState(task.description);
     const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(task.dueDate);
+    const [editedResponsible, setEditedResponsible] = useState<string | undefined>(task.responsible); // Add state for responsible person
     const [formattedModalDate, setFormattedModalDate] = useState<string>('Escoge una fecha');
+    const { toast } = useToast(); // Get toast function
 
     // Update local state when the task prop changes (e.g., opening the modal for a different task)
     useEffect(() => {
         setEditedTitle(task.title);
         setEditedDescription(task.description);
         setEditedDueDate(task.dueDate);
+        setEditedResponsible(task.responsible); // Update responsible person
     }, [task]);
 
     useEffect(() => {
@@ -1062,6 +1143,7 @@ function EditTaskModal({ isOpen, onClose, task, onSave }: EditTaskModalProps) {
             title: editedTitle,
             description: editedDescription,
             dueDate: editedDueDate,
+            responsible: editedResponsible, // Pass responsible person
         });
         onClose(); // Close modal after saving
     };
@@ -1070,10 +1152,10 @@ function EditTaskModal({ isOpen, onClose, task, onSave }: EditTaskModalProps) {
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[425px] bg-card text-card-foreground border-border">
                 <DialogHeader>
-                    <DialogTitle>Editar Tarea</DialogTitle>
-                    <DialogDescription>
+                    <DialogTitleShadCN>Editar Tarea</DialogTitleShadCN>
+                    <DialogDescriptionShadCN>
                         Realiza los cambios necesarios en la tarea. Haz clic en guardar cuando termines.
-                    </DialogDescription>
+                    </DialogDescriptionShadCN>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -1134,6 +1216,21 @@ function EditTaskModal({ isOpen, onClose, task, onSave }: EditTaskModalProps) {
                             </PopoverContent>
                         </Popover>
                     </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                         <Label htmlFor="edit-responsible" className="text-right">
+                            Responsable
+                        </Label>
+                         <Select value={editedResponsible} onValueChange={setEditedResponsible}>
+                             <SelectTrigger id="edit-responsible" className="col-span-3 bg-background text-foreground border-input">
+                                <SelectValue placeholder="Selecciona una persona" />
+                             </SelectTrigger>
+                             <SelectContent>
+                                {responsiblePeople.map((person) => (
+                                    <SelectItem key={person} value={person}>{person}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
                 <DialogFooter>
                     <DialogClose asChild>
@@ -1147,9 +1244,4 @@ function EditTaskModal({ isOpen, onClose, task, onSave }: EditTaskModalProps) {
         </Dialog>
     );
 }
-
-
-    
-
-
 
