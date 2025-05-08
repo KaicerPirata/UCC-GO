@@ -209,7 +209,7 @@ function MainContent() {
     const newTaskData = {
       title: newTaskTitle,
       description: newTaskDescription,
-      dueDate: dueDate.toISOString(), // Save as ISO string in Firestore
+      dueDate: dueDate ? dueDate.toISOString() : null, // Save as ISO string or null in Firestore
       status: 'Pendiente',
     };
 
@@ -370,6 +370,7 @@ function MainContent() {
     setFromColumnToDelete(null);
     if (selectedTask?.id === taskId) {
       setSelectedTask(null); // Deselect if the deleted task was selected
+      setSelectedColumn(null);
     }
 
     try {
@@ -408,8 +409,8 @@ function MainContent() {
     <TooltipProvider>
       <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4 bg-background text-foreground">
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold mb-2 text-primary font-sans">
-            CheckItOut
+          <h1 className="text-5xl font-bold mb-2 text-primary font-sans text-white">
+             CheckItOut
           </h1>
           <p className="text-lg text-muted-foreground">Tablero Kanban</p>
         </div>
@@ -557,6 +558,7 @@ function MainContent() {
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
             setSelectedTask={setSelectedTask}
+            setSelectedColumn={setSelectedColumn}
             dropdownTitle="Tareas Pendientes"
             tooltipText="Tareas por hacer"
           />
@@ -571,6 +573,7 @@ function MainContent() {
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
             setSelectedTask={setSelectedTask}
+            setSelectedColumn={setSelectedColumn}
             dropdownTitle="Tareas En Progreso"
             tooltipText="Tareas en ejecución"
           />
@@ -585,6 +588,7 @@ function MainContent() {
             selectedTask={selectedTask}
             selectedColumn={selectedColumn}
             setSelectedTask={setSelectedTask}
+            setSelectedColumn={setSelectedColumn}
             dropdownTitle="Tareas Completadas"
             tooltipText="Tareas finalizadas"
           />
@@ -630,6 +634,7 @@ interface KanbanColumnProps {
   selectedTask: Task | null;
   selectedColumn: string | null;
   setSelectedTask: (task: Task | null) => void;
+  setSelectedColumn: (columnId: string | null) => void; // Added this prop
   dropdownTitle: string;
   tooltipText: string;
 }
@@ -645,17 +650,18 @@ function KanbanColumn({
   selectedTask,
   selectedColumn,
   setSelectedTask,
+  setSelectedColumn, // Receive the prop
   dropdownTitle,
   tooltipText,
 }: KanbanColumnProps) {
   const getColumnBackgroundColor = () => {
     switch (title) {
       case 'Pendiente':
-        return 'bg-yellow-100 border-yellow-300 text-yellow-800'; // Example: Yellowish theme
+        return 'bg-yellow-100 border-yellow-300 text-yellow-800 dark:bg-yellow-900 dark:border-yellow-700 dark:text-yellow-100';
       case 'En Progreso':
-        return 'bg-blue-100 border-blue-300 text-blue-800'; // Example: Bluish theme
+        return 'bg-blue-100 border-blue-300 text-blue-800 dark:bg-blue-900 dark:border-blue-700 dark:text-blue-100';
       case 'Completada':
-        return 'bg-green-100 border-green-300 text-green-800'; // Example: Greenish theme
+        return 'bg-green-100 border-green-300 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100';
       default:
         return 'bg-card border-border text-card-foreground';
     }
@@ -682,7 +688,7 @@ function KanbanColumn({
     // We only need to potentially close the selected task if the accordion itself closes.
      if (!value && selectedColumn === columnId) { // If accordion closes and it was the selected one
        setSelectedTask(null);
-       setSelectedColumn(null);
+       setSelectedColumn(null); // Now this function is defined
      }
      // If a different accordion opens, the selectedTask will be handled by onTaskClick
   };
@@ -869,3 +875,4 @@ function TaskCard({ task, moveTask, confirmDeleteTask, from }: TaskCardProps) {
 
 
     
+
