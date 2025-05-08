@@ -106,6 +106,8 @@ function MainContent() {
   const [newResponsiblePerson, setNewResponsiblePerson] = useState<string | undefined>();
   const [newPersonName, setNewPersonName] = useState<string>('');
   const [loadingResponsible, setLoadingResponsible] = useState(true); // Loading state for responsible list
+  const [isDeletePersonModalOpen, setIsDeletePersonModalOpen] = useState(false); // State for delete person modal
+
 
   const tasksCollection = collection(db, 'tasks');
   const configCollection = collection(db, 'appConfig'); // Collection for app config
@@ -306,6 +308,8 @@ function MainContent() {
                variant: 'default',
                duration: 5000
           })
+          // Decide whether to proceed with deletion from the list or block it
+          // For now, we'll allow deletion from the list but warn the user.
       }
 
       const updatedList = responsiblePeople.filter(person => person !== personToDelete);
@@ -317,10 +321,9 @@ function MainContent() {
           setNewResponsiblePerson(undefined);
       }
 
-      // If the person being edited in the modal is the one being deleted, reset it in the modal
-      // The modal needs to handle this check based on the updated list prop
+      // If the person being edited in the task edit modal is the one being deleted, reset it in the modal
       if (taskToEdit?.responsible === personToDelete) {
-         // Let the modal handle this via its useEffect dependency on responsiblePeople
+         setTaskToEdit(prev => prev ? { ...prev, responsible: undefined } : null);
       }
 
       toast({
@@ -680,7 +683,6 @@ function MainContent() {
                     </SelectContent>
                 </Select>
                  <div className="mt-4 space-y-2">
-                     {/* Removed "Gestionar Responsables" label */}
                      <div className="flex items-center gap-2">
                          <Input
                             type="text"
@@ -689,25 +691,14 @@ function MainContent() {
                             onChange={(e) => setNewPersonName(e.target.value)}
                              className="flex-grow shadow-sm focus:ring-primary focus:border-primary sm:text-sm border-input rounded-md bg-background text-foreground"
                         />
-                        <Button onClick={handleAddPerson} size="sm" variant="outline" aria-label="Añadir persona"> {/* Changed to size="sm" */}
-                           Añadir {/* Changed icon to text */}
+                        <Button onClick={handleAddPerson} size="sm" variant="outline" aria-label="Añadir persona">
+                           Añadir
+                        </Button>
+                         <Button onClick={() => setIsDeletePersonModalOpen(true)} size="sm" variant="outline" aria-label="Eliminar persona" disabled={loadingResponsible || responsiblePeople.length === 0}>
+                           Eliminar
                         </Button>
                      </div>
-                      {/* Kept the list display for managing people */}
-                     <div className="mt-2 space-y-1 max-h-32 overflow-y-auto border rounded-md p-2 bg-muted/30">
-                        {loadingResponsible ? (
-                          <p className="text-xs text-muted-foreground italic text-center">Cargando responsables...</p>
-                        ) : responsiblePeople.length > 0 ? responsiblePeople.map((person) => (
-                            <div key={person} className="flex items-center justify-between text-sm">
-                                <span>{person}</span>
-                                <Button onClick={() => handleDeletePerson(person)} size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" aria-label={`Eliminar ${person}`}>
-                                    <X className="h-4 w-4"/>
-                                </Button>
-                            </div>
-                        )) : (
-                            <p className="text-xs text-muted-foreground italic text-center">No hay responsables añadidos.</p>
-                        )}
-                    </div>
+                    {/* Removed inline list display */}
                  </div>
             </div>
             <div className="flex items-center gap-4 mt-2">
@@ -899,6 +890,14 @@ function MainContent() {
                 onDeletePerson={handleDeletePerson} // Pass delete function
             />
         )}
+
+         {/* Delete Person Modal */}
+        <DeletePersonModal
+            isOpen={isDeletePersonModalOpen}
+            onClose={() => setIsDeletePersonModalOpen(false)}
+            responsiblePeople={responsiblePeople}
+            onDeletePerson={handleDeletePerson}
+        />
 
       </main>
     </TooltipProvider>
@@ -1208,6 +1207,8 @@ function EditTaskModal({
     const [formattedModalDate, setFormattedModalDate] = useState<string>('Escoge una fecha');
     const [newPersonNameModal, setNewPersonNameModal] = useState<string>(''); // State for adding new person within modal
     const { toast } = useToast(); // Get toast function
+    const [isManagePeopleOpen, setIsManagePeopleOpen] = useState(false); // State for managing people section
+
 
     // Update local state when the task prop changes (e.g., opening the modal for a different task)
     useEffect(() => {
@@ -1388,32 +1389,38 @@ function EditTaskModal({
                                     ))}
                                 </SelectContent>
                             </Select>
-                             {/* Section to manage people within the modal */}
-                             <div className="mt-2 space-y-2 border rounded-md p-2 bg-muted/30">
-                                <Label className="text-xs font-medium text-muted-foreground">Gestionar Lista</Label>
-                                <div className="flex items-center gap-2">
-                                     <Input
-                                        type="text"
-                                        placeholder="Añadir nueva persona"
-                                        value={newPersonNameModal}
-                                        onChange={(e) => setNewPersonNameModal(e.target.value)}
-                                        className="flex-grow h-8 text-sm shadow-sm focus:ring-primary focus:border-primary border-input rounded-md bg-background text-foreground"
-                                    />
-                                    <Button onClick={handleAddPersonInModal} size="icon" variant="outline" className="h-8 w-8" aria-label="Añadir persona a lista global">
-                                        <Plus className="h-4 w-4"/>
-                                    </Button>
-                                 </div>
-                                <div className="mt-1 max-h-24 overflow-y-auto space-y-1">
-                                     {responsiblePeople.map((person) => (
-                                        <div key={person} className="flex items-center justify-between text-xs">
-                                            <span>{person}</span>
-                                            <Button onClick={() => handleDeletePersonInModal(person)} size="icon" variant="ghost" className="h-5 w-5 text-destructive hover:bg-destructive/10" aria-label={`Eliminar ${person} de lista global`}>
-                                                <X className="h-3 w-3"/>
-                                            </Button>
-                                        </div>
-                                    ))}
+                             {/* Toggle Button for Manage People */}
+                              <Button variant="outline" size="sm" onClick={() => setIsManagePeopleOpen(!isManagePeopleOpen)} className="w-full">
+                                {isManagePeopleOpen ? 'Ocultar Gestión' : 'Gestionar Lista'}
+                            </Button>
+
+                             {/* Collapsible Section to manage people */}
+                             {isManagePeopleOpen && (
+                                 <div className="mt-2 space-y-2 border rounded-md p-2 bg-muted/30">
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            type="text"
+                                            placeholder="Añadir nueva persona"
+                                            value={newPersonNameModal}
+                                            onChange={(e) => setNewPersonNameModal(e.target.value)}
+                                            className="flex-grow h-8 text-sm shadow-sm focus:ring-primary focus:border-primary border-input rounded-md bg-background text-foreground"
+                                        />
+                                        <Button onClick={handleAddPersonInModal} size="icon" variant="outline" className="h-8 w-8" aria-label="Añadir persona a lista global">
+                                            <Plus className="h-4 w-4"/>
+                                        </Button>
+                                    </div>
+                                    <div className="mt-1 max-h-24 overflow-y-auto space-y-1">
+                                        {responsiblePeople.length > 0 ? responsiblePeople.map((person) => (
+                                            <div key={person} className="flex items-center justify-between text-xs">
+                                                <span>{person}</span>
+                                                <Button onClick={() => handleDeletePersonInModal(person)} size="icon" variant="ghost" className="h-5 w-5 text-destructive hover:bg-destructive/10" aria-label={`Eliminar ${person} de lista global`}>
+                                                    <X className="h-3 w-3"/>
+                                                </Button>
+                                            </div>
+                                        )) : <p className="text-xs text-muted-foreground italic text-center">No hay responsables.</p>}
+                                    </div>
                                 </div>
-                            </div>
+                             )}
                          </div>
                     </div>
                 </div>
@@ -1430,4 +1437,65 @@ function EditTaskModal({
     );
 }
 
-    
+// Delete Person Modal Component
+interface DeletePersonModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  responsiblePeople: string[];
+  onDeletePerson: (personToDelete: string) => void;
+}
+
+function DeletePersonModal({
+  isOpen,
+  onClose,
+  responsiblePeople,
+  onDeletePerson,
+}: DeletePersonModalProps) {
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px] bg-card text-card-foreground border-border">
+        <DialogHeader>
+          <DialogTitleShadCN>Eliminar Responsable</DialogTitleShadCN>
+          <DialogDescriptionShadCN>
+            Selecciona la persona que deseas eliminar de la lista de responsables.
+            Esta acción no se puede deshacer y la eliminará permanentemente de la lista global.
+          </DialogDescriptionShadCN>
+        </DialogHeader>
+        <div className="py-4 max-h-60 overflow-y-auto">
+          {responsiblePeople.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center">No hay responsables para eliminar.</p>
+          ) : (
+            <ul className="space-y-2">
+              {responsiblePeople.map((person) => (
+                <li key={person} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
+                  <span className="text-sm">{person}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      onDeletePerson(person);
+                      // Optionally close the modal after deletion or keep it open to delete more
+                      // onClose(); // Uncomment to close after one deletion
+                    }}
+                    aria-label={`Eliminar ${person}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+
