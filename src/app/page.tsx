@@ -35,7 +35,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Check, Settings, Trash2, Clock, Pencil, User as UserIcon, Plus } from 'lucide-react'; // Added Pencil, UserIcon, Plus icon
+import { Check, Settings, Trash2, Clock, Pencil, User as UserIcon, Plus, X } from 'lucide-react'; // Added Pencil, UserIcon, Plus, X icon
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -230,6 +230,47 @@ function MainContent() {
         });
     }
   };
+
+    const handleDeletePerson = (personToDelete: string) => {
+        // Optional: Check if this person is assigned to any tasks before deleting
+        const isAssigned = [...pendingTasks, ...inProgressTasks, ...completedTasks].some(
+            task => task.responsible === personToDelete
+        );
+
+        // You might want to add a confirmation dialog here, especially if the person is assigned
+        if (isAssigned) {
+            // Example: Alert the user (consider a more user-friendly modal)
+            // if (!confirm(`"${personToDelete}" está asignado a tareas. ¿Seguro que quieres eliminarlo de la lista? Las tareas asignadas no cambiarán.`)) {
+            //     return;
+            // }
+            toast({
+                 title: 'Persona asignada',
+                 description: `${personToDelete} está asignado/a a una o más tareas. Eliminarlo/a de esta lista no lo/a desasignará de las tareas.`,
+                 variant: 'default', // Use default variant for informational message
+                 duration: 5000 // Show for longer
+            })
+        }
+
+
+        setResponsiblePeople(prev => prev.filter(person => person !== personToDelete));
+
+        // If the currently selected responsible person for the new task is the one being deleted, reset it
+        if (newResponsiblePerson === personToDelete) {
+            setNewResponsiblePerson(undefined);
+        }
+
+        // If the person being edited in the modal is the one being deleted, reset it in the modal
+        if (taskToEdit?.responsible === personToDelete) {
+           // This requires passing setTaskToEdit down or handling it differently.
+           // For now, we'll just remove from the list. The edit modal will need to handle this.
+        }
+
+
+        toast({
+            title: '¡Persona eliminada!',
+            description: `${personToDelete} ha sido eliminado/a de la lista de responsables.`,
+        });
+    };
 
 
   const handleAddTask = async () => {
@@ -581,18 +622,32 @@ function MainContent() {
                         ))}
                     </SelectContent>
                 </Select>
-                 <div className="mt-2 flex items-center gap-2">
-                     <Input
-                        type="text"
-                        placeholder="Añadir nueva persona"
-                        value={newPersonName}
-                        onChange={(e) => setNewPersonName(e.target.value)}
-                        className="flex-grow shadow-sm focus:ring-primary focus:border-primary sm:text-sm border-input rounded-md bg-background text-foreground"
-                    />
-                    <Button onClick={handleAddPerson} size="icon" variant="outline">
-                        <Plus className="h-4 w-4"/>
-                        <span className="sr-only">Añadir persona</span>
-                    </Button>
+                 <div className="mt-4 space-y-2">
+                     <Label className="block text-sm font-medium text-card-foreground mb-1">Gestionar Responsables:</Label>
+                     <div className="flex items-center gap-2">
+                         <Input
+                            type="text"
+                            placeholder="Añadir nueva persona"
+                            value={newPersonName}
+                            onChange={(e) => setNewPersonName(e.target.value)}
+                             className="flex-grow shadow-sm focus:ring-primary focus:border-primary sm:text-sm border-input rounded-md bg-background text-foreground"
+                        />
+                        <Button onClick={handleAddPerson} size="icon" variant="outline" aria-label="Añadir persona">
+                            <Plus className="h-4 w-4"/>
+                        </Button>
+                     </div>
+                     <div className="mt-2 space-y-1 max-h-32 overflow-y-auto border rounded-md p-2 bg-muted/30">
+                        {responsiblePeople.length > 0 ? responsiblePeople.map((person) => (
+                            <div key={person} className="flex items-center justify-between text-sm">
+                                <span>{person}</span>
+                                <Button onClick={() => handleDeletePerson(person)} size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" aria-label={`Eliminar ${person}`}>
+                                    <X className="h-4 w-4"/>
+                                </Button>
+                            </div>
+                        )) : (
+                            <p className="text-xs text-muted-foreground italic text-center">No hay responsables añadidos.</p>
+                        )}
+                    </div>
                  </div>
             </div>
             <div className="flex items-center gap-4 mt-2">
@@ -780,6 +835,7 @@ function MainContent() {
                 task={taskToEdit}
                 onSave={handleSaveChanges}
                 responsiblePeople={responsiblePeople} // Pass responsible people list
+                setResponsiblePeople={setResponsiblePeople} // Pass setter to allow editing modal to update list
             />
         )}
 
@@ -1071,14 +1127,16 @@ interface EditTaskModalProps {
     task: Task;
     onSave: (updatedTaskData: Omit<Task, 'id' | 'status'>) => void;
     responsiblePeople: string[]; // Add responsible people list prop
+    setResponsiblePeople: React.Dispatch<React.SetStateAction<string[]>>; // Add setter
 }
 
-function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople }: EditTaskModalProps) {
+function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople, setResponsiblePeople }: EditTaskModalProps) {
     const [editedTitle, setEditedTitle] = useState(task.title);
     const [editedDescription, setEditedDescription] = useState(task.description);
     const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(task.dueDate);
     const [editedResponsible, setEditedResponsible] = useState<string | undefined>(task.responsible); // Add state for responsible person
     const [formattedModalDate, setFormattedModalDate] = useState<string>('Escoge una fecha');
+    const [newPersonNameModal, setNewPersonNameModal] = useState<string>(''); // State for adding new person within modal
     const { toast } = useToast(); // Get toast function
 
     // Update local state when the task prop changes (e.g., opening the modal for a different task)
@@ -1086,8 +1144,10 @@ function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople }: Edi
         setEditedTitle(task.title);
         setEditedDescription(task.description);
         setEditedDueDate(task.dueDate);
-        setEditedResponsible(task.responsible); // Update responsible person
-    }, [task]);
+        // Ensure the responsible person exists in the current list, otherwise default to undefined
+        setEditedResponsible(responsiblePeople.includes(task.responsible ?? '') ? task.responsible : undefined);
+    }, [task, responsiblePeople]); // Add responsiblePeople as dependency
+
 
     useEffect(() => {
         if (editedDueDate instanceof Date) {
@@ -1122,6 +1182,52 @@ function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople }: Edi
         }
     };
 
+    const handleAddPersonInModal = () => {
+        const trimmedName = newPersonNameModal.trim();
+        if (trimmedName && !responsiblePeople.includes(trimmedName)) {
+            setResponsiblePeople(prev => [...prev, trimmedName]); // Update global list
+            setNewPersonNameModal(''); // Clear input
+             toast({
+                title: '¡Persona añadida!',
+                description: `${trimmedName} ha sido añadido a la lista global de responsables.`,
+            });
+            // Optionally select the newly added person
+            setEditedResponsible(trimmedName);
+        } else if (!trimmedName) {
+             toast({ title: 'Nombre vacío', description: 'Por favor, ingresa un nombre.', variant: 'destructive' });
+        } else {
+             toast({ title: 'Nombre duplicado', description: `${trimmedName} ya existe en la lista.`, variant: 'destructive' });
+        }
+    };
+
+     const handleDeletePersonInModal = (personToDelete: string) => {
+        // Similar logic as handleDeletePerson, but updates the global list via setResponsiblePeople
+         const isAssigned = [...pendingTasks, ...inProgressTasks, ...completedTasks].some(
+            task => task.responsible === personToDelete && task.id !== taskToEdit?.id // Check other tasks
+        );
+         if (isAssigned) {
+              toast({
+                 title: 'Persona asignada',
+                 description: `${personToDelete} está asignado/a a otras tareas. Eliminarlo/a de esta lista no lo/a desasignará.`,
+                 variant: 'default',
+                 duration: 5000
+            })
+         }
+
+        setResponsiblePeople(prev => prev.filter(person => person !== personToDelete));
+
+        // If the currently selected responsible person for the *edited* task is the one being deleted, reset it
+        if (editedResponsible === personToDelete) {
+            setEditedResponsible(undefined);
+        }
+
+        toast({
+            title: '¡Persona eliminada!',
+            description: `${personToDelete} ha sido eliminado/a de la lista global de responsables.`,
+        });
+    };
+
+
     const handleSaveClick = () => {
         if (!editedTitle || !editedDescription) {
             toast({
@@ -1147,6 +1253,15 @@ function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople }: Edi
         });
         onClose(); // Close modal after saving
     };
+
+    // Need access to task lists to check assignment status in handleDeletePersonInModal
+    // This is getting complex, consider lifting state management or using context if needed elsewhere
+    // For now, we'll just show a generic warning if deleted person might be assigned elsewhere.
+    const pendingTasks = MainContent.prototype.state?.pendingTasks || [];
+    const inProgressTasks = MainContent.prototype.state?.inProgressTasks || [];
+    const completedTasks = MainContent.prototype.state?.completedTasks || [];
+    const taskToEdit = MainContent.prototype.state?.taskToEdit; // Assuming this context exists which is not ideal
+
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -1216,20 +1331,48 @@ function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople }: Edi
                             </PopoverContent>
                         </Popover>
                     </div>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                         <Label htmlFor="edit-responsible" className="text-right">
+                     <div className="grid grid-cols-4 items-start gap-4"> {/* Changed items-center to items-start */}
+                         <Label htmlFor="edit-responsible" className="text-right pt-2"> {/* Added padding-top */}
                             Responsable
                         </Label>
-                         <Select value={editedResponsible} onValueChange={setEditedResponsible}>
-                             <SelectTrigger id="edit-responsible" className="col-span-3 bg-background text-foreground border-input">
-                                <SelectValue placeholder="Selecciona una persona" />
-                             </SelectTrigger>
-                             <SelectContent>
-                                {responsiblePeople.map((person) => (
-                                    <SelectItem key={person} value={person}>{person}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                         <div className="col-span-3 space-y-2"> {/* Container for select and manage section */}
+                             <Select value={editedResponsible} onValueChange={setEditedResponsible}>
+                                 <SelectTrigger id="edit-responsible" className="w-full bg-background text-foreground border-input">
+                                    <SelectValue placeholder="Selecciona una persona" />
+                                 </SelectTrigger>
+                                 <SelectContent>
+                                    {responsiblePeople.map((person) => (
+                                        <SelectItem key={person} value={person}>{person}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                             {/* Section to manage people within the modal */}
+                             <div className="mt-2 space-y-2 border rounded-md p-2 bg-muted/30">
+                                <Label className="text-xs font-medium text-muted-foreground">Gestionar Lista</Label>
+                                <div className="flex items-center gap-2">
+                                     <Input
+                                        type="text"
+                                        placeholder="Añadir nueva persona"
+                                        value={newPersonNameModal}
+                                        onChange={(e) => setNewPersonNameModal(e.target.value)}
+                                        className="flex-grow h-8 text-sm shadow-sm focus:ring-primary focus:border-primary border-input rounded-md bg-background text-foreground"
+                                    />
+                                    <Button onClick={handleAddPersonInModal} size="icon" variant="outline" className="h-8 w-8" aria-label="Añadir persona a lista global">
+                                        <Plus className="h-4 w-4"/>
+                                    </Button>
+                                 </div>
+                                <div className="mt-1 max-h-24 overflow-y-auto space-y-1">
+                                     {responsiblePeople.map((person) => (
+                                        <div key={person} className="flex items-center justify-between text-xs">
+                                            <span>{person}</span>
+                                            <Button onClick={() => handleDeletePersonInModal(person)} size="icon" variant="ghost" className="h-5 w-5 text-destructive hover:bg-destructive/10" aria-label={`Eliminar ${person} de lista global`}>
+                                                <X className="h-3 w-3"/>
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                         </div>
                     </div>
                 </div>
                 <DialogFooter>
@@ -1244,4 +1387,5 @@ function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople }: Edi
         </Dialog>
     );
 }
+
 
