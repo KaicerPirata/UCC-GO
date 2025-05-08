@@ -74,6 +74,7 @@ interface Task {
   dueDate?: Date;
   status: string;
   responsible?: string; // Add responsible field
+  createdAt: Date; // Add createdAt field
 }
 
 // Removed App component, directly exporting MainContent as default
@@ -139,6 +140,8 @@ function MainContent() {
 
         const tasks: Task[] = snapshot.docs.map((doc) => {
           const data = doc.data();
+
+          // Handle Due Date
           let taskDueDate: Date | undefined;
           if (data.dueDate instanceof Timestamp) {
             taskDueDate = data.dueDate.toDate();
@@ -162,6 +165,27 @@ function MainContent() {
             taskDueDate = undefined;
           }
 
+          // Handle Created At Date
+          let taskCreatedAt: Date;
+          if (data.createdAt instanceof Timestamp) {
+             taskCreatedAt = data.createdAt.toDate();
+          } else if (typeof data.createdAt === 'string') {
+            try {
+                taskCreatedAt = new Date(data.createdAt);
+                if (isNaN(taskCreatedAt.getTime())) {
+                    console.warn(`Invalid createdAt date string for task ${doc.id}, using current time.`);
+                    taskCreatedAt = new Date(); // Fallback to current date
+                }
+            } catch(e) {
+                console.error(`Error parsing createdAt date string for task ${doc.id}, using current time.`, e);
+                taskCreatedAt = new Date(); // Fallback to current date
+            }
+          } else {
+            console.warn(`Missing or invalid createdAt field for task ${doc.id}, using current time.`);
+            taskCreatedAt = new Date(); // Fallback if missing or invalid type
+          }
+
+
           const status =
             typeof data.status === 'string' ? data.status : 'Pendiente';
           return {
@@ -171,6 +195,7 @@ function MainContent() {
             status: status,
             dueDate: taskDueDate,
             responsible: data.responsible || undefined, // Fetch responsible person
+            createdAt: taskCreatedAt, // Add createdAt
           } as Task;
         });
 
@@ -355,12 +380,16 @@ function MainContent() {
       return;
     }
 
+    const currentTimestamp = Timestamp.now(); // Get current timestamp for Firestore
+    const currentDate = new Date(); // Get current date for local state
+
     const newTaskData = {
       title: newTaskTitle,
       description: newTaskDescription,
       dueDate: dueDate ? Timestamp.fromDate(dueDate) : null, // Save as Firestore Timestamp or null
       status: 'Pendiente',
       responsible: newResponsiblePerson || null, // Add responsible person
+      createdAt: currentTimestamp, // Add createdAt timestamp for Firestore
     };
 
     try {
@@ -373,6 +402,7 @@ function MainContent() {
         id: docRef.id,
         dueDate: dueDate, // Use the Date object for local state consistency
         responsible: newResponsiblePerson, // Use state value
+        createdAt: currentDate, // Use Date object for local state
       };
 
       // Use functional update for setPendingTasks
@@ -562,17 +592,18 @@ function MainContent() {
     setIsEditModalOpen(true);
   };
 
-  const handleSaveChanges = async (updatedTaskData: Omit<Task, 'id' | 'status' | 'responsible'>) => {
+  // Updated handleSaveChanges to exclude createdAt
+  const handleSaveChanges = async (updatedTaskData: Omit<Task, 'id' | 'status' | 'responsible' | 'createdAt'>) => {
     if (!taskToEdit) return;
 
     const taskId = taskToEdit.id;
-     // Keep the original responsible person, don't update it
-    const updatedTask: Task = { ...taskToEdit, ...updatedTaskData, responsible: taskToEdit.responsible };
+     // Keep the original responsible person and createdAt, don't update them
+    const updatedTask: Task = { ...taskToEdit, ...updatedTaskData, responsible: taskToEdit.responsible, createdAt: taskToEdit.createdAt };
 
 
     // Prepare data for Firestore (convert Date to Timestamp or null)
-    // Exclude 'responsible' from the data sent to Firestore for update
-    const { responsible, ...firestoreUpdateData } = updatedTaskData;
+    // Exclude 'responsible' and 'createdAt' from the data sent to Firestore for update
+    const { responsible, createdAt, ...firestoreUpdateData } = updatedTaskData;
     const firestoreData = {
         ...firestoreUpdateData,
         dueDate: updatedTaskData.dueDate ? Timestamp.fromDate(updatedTaskData.dueDate) : null,
@@ -582,7 +613,7 @@ function MainContent() {
       const taskDocRef = doc(db, 'tasks', taskId);
       await updateDoc(taskDocRef, firestoreData);
 
-      // Update local state (keeping the original responsible person)
+      // Update local state (keeping the original responsible person and createdAt)
       const updateStateTasks = (setter: React.Dispatch<React.SetStateAction<Task[]>>) => {
         setter((prevTasks) =>
           prevTasks.map((task) =>
@@ -1081,9 +1112,17 @@ function TaskCard({ task, moveTask, confirmDeleteTask, openEditModal, from }: Ta
           <strong className="text-foreground/80">Descripción:</strong>{' '}
           {task.description}
         </div>
+         <div className="text-sm">
+             <strong className="text-foreground/80">Creada:</strong>{' '}
+             <span className="text-muted-foreground">
+               {task.createdAt instanceof Date
+                 ? format(task.createdAt, 'PPP p', { locale: es }) // Format with time
+                 : 'Fecha inválida'}
+            </span>
+         </div>
         {task.dueDate && (
           <div className="text-sm">
-            <strong className="text-foreground/80">Fecha:</strong>{' '}
+            <strong className="text-foreground/80">Vence:</strong>{' '}
             <span className={dueDateClassName}>
               {task.dueDate instanceof Date
                 ? format(task.dueDate, 'PPP', { locale: es }) // Format date using Spanish locale
@@ -1182,12 +1221,12 @@ function TaskCard({ task, moveTask, confirmDeleteTask, openEditModal, from }: Ta
   );
 }
 
-// Edit Task Modal Component
+// Updated EditTaskModalProps interface
 interface EditTaskModalProps {
     isOpen: boolean;
     onClose: () => void;
     task: Task;
-    onSave: (updatedTaskData: Omit<Task, 'id' | 'status' | 'responsible'>) => void; // Exclude responsible from save data
+    onSave: (updatedTaskData: Omit<Task, 'id' | 'status' | 'responsible' | 'createdAt'>) => void; // Exclude responsible & createdAt
     responsiblePeople: string[]; // Keep for display if needed, but disabled
 }
 
@@ -1210,7 +1249,7 @@ function EditTaskModal({
         setEditedTitle(task.title);
         setEditedDescription(task.description);
         setEditedDueDate(task.dueDate);
-        // No need to set editedResponsible as it's not editable
+        // No need to set editedResponsible or createdAt as they are not editable
     }, [task]);
 
 
@@ -1308,7 +1347,7 @@ function EditTaskModal({
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                          <Label htmlFor="edit-dueDate" className="text-right">
-                            Fecha
+                            Fecha Venc.
                         </Label>
                          <Popover>
                             <PopoverTrigger asChild>
@@ -1355,6 +1394,17 @@ function EditTaskModal({
                             />
                             <p className="text-xs text-muted-foreground italic">El responsable no se puede cambiar.</p>
                          </div>
+                    </div>
+                     {/* Created At Section - Display Only */}
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label className="text-right text-muted-foreground">
+                            Creada
+                        </Label>
+                        <div className="col-span-3 text-sm text-muted-foreground">
+                           {task.createdAt instanceof Date
+                                ? format(task.createdAt, 'PPP p', { locale: es })
+                                : 'Fecha inválida'}
+                        </div>
                     </div>
                 </div>
                 <DialogFooter>
