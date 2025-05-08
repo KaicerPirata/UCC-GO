@@ -694,7 +694,7 @@ function MainContent() {
                         <Button onClick={handleAddPerson} size="sm" variant="outline" aria-label="Añadir persona">
                            Añadir
                         </Button>
-                         <Button onClick={() => setIsDeletePersonModalOpen(true)} size="sm" variant="outline" aria-label="Eliminar persona" disabled={loadingResponsible || responsiblePeople.length === 0}>
+                         <Button onClick={() => setIsDeletePersonModalOpen(true)} size="sm" variant="destructive" aria-label="Eliminar persona" disabled={loadingResponsible || responsiblePeople.length === 0}>
                            Eliminar
                         </Button>
                      </div>
@@ -1496,6 +1496,3 @@ function DeletePersonModal({
     </Dialog>
   );
 }
-
-
-
