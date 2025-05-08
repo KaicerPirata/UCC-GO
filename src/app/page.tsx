@@ -1,10 +1,9 @@
 
-
 'use client';
 
 import type { User } from 'firebase/auth'; // Keep User type for potential future use
 import { useEffect, useState, useCallback } from 'react';
-import { db, auth } from '@/lib/firebase'; // Import Firestore instance and auth
+import { db } from '@/lib/firebase'; // Import Firestore instance
 import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -23,12 +22,21 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Check, Settings, Trash2, Clock } from 'lucide-react';
+import { Check, Settings, Trash2, Clock, Pencil } from 'lucide-react'; // Added Pencil icon
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +56,7 @@ import {
   query,
   Timestamp,
 } from 'firebase/firestore';
+import { Label } from '@/components/ui/label';
 
 
 interface Task {
@@ -82,6 +91,11 @@ function MainContent() {
   const [showAlert, setShowAlert] = useState(false);
   const [showDateAlert, setShowDateAlert] = useState(false);
   const [showDuplicateTaskAlert, setShowDuplicateTaskAlert] = useState(false);
+
+  // State for Edit Modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+
 
   const tasksCollection = collection(db, 'tasks');
 
@@ -406,6 +420,71 @@ function MainContent() {
     }
   };
 
+  const openEditModal = (task: Task) => {
+    setTaskToEdit(task);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveChanges = async (updatedTaskData: Omit<Task, 'id' | 'status'>) => {
+    if (!taskToEdit) return;
+
+    const taskId = taskToEdit.id;
+    const updatedTask: Task = { ...taskToEdit, ...updatedTaskData };
+
+    // Prepare data for Firestore (convert Date to ISO string)
+    const firestoreData = {
+      ...updatedTaskData,
+      dueDate: updatedTaskData.dueDate ? updatedTaskData.dueDate.toISOString() : null,
+    };
+
+    try {
+      const taskDocRef = doc(db, 'tasks', taskId);
+      await updateDoc(taskDocRef, firestoreData);
+
+      // Update local state
+      const updateStateTasks = (setter: React.Dispatch<React.SetStateAction<Task[]>>) => {
+        setter((prevTasks) =>
+          prevTasks.map((task) =>
+            task.id === taskId ? updatedTask : task
+          )
+        );
+      };
+
+      switch (taskToEdit.status) {
+        case 'Pendiente':
+          updateStateTasks(setPendingTasks);
+          break;
+        case 'En Progreso':
+          updateStateTasks(setInProgressTasks);
+          break;
+        case 'Completada':
+          updateStateTasks(setCompletedTasks);
+          break;
+      }
+
+      // If the edited task was the selected one, update the selected task state as well
+      if (selectedTask?.id === taskId) {
+          setSelectedTask(updatedTask);
+      }
+
+
+      setIsEditModalOpen(false);
+      setTaskToEdit(null);
+
+      toast({
+        title: '¡Tarea actualizada!',
+        description: 'Los cambios se han guardado correctamente.',
+      });
+    } catch (error) {
+      console.error('Error al actualizar la tarea:', error);
+      toast({
+        title: '¡Error!',
+        description: 'No se pudieron guardar los cambios.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <TooltipProvider>
       <main className="flex min-h-screen flex-col p-4 md:p-24 gap-4 bg-background text-foreground">
@@ -553,6 +632,7 @@ function MainContent() {
             tasks={pendingTasks}
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
+            openEditModal={openEditModal} // Pass edit modal opener
             columnId="Pendiente"
             icon={<Clock className="h-8 w-8 text-yellow-500" />}
             onTaskClick={handleTaskClick}
@@ -568,6 +648,7 @@ function MainContent() {
             tasks={inProgressTasks}
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
+            openEditModal={openEditModal} // Pass edit modal opener
             columnId="En Progreso"
             icon={<Settings className="h-8 w-8 text-blue-500" />}
             onTaskClick={handleTaskClick}
@@ -583,6 +664,7 @@ function MainContent() {
             tasks={completedTasks}
             moveTask={moveTask}
             confirmDeleteTask={confirmDeleteTask}
+            openEditModal={openEditModal} // Pass edit modal opener
             columnId="Completada"
             icon={<Check className="h-8 w-8 text-green-500" />}
             onTaskClick={handleTaskClick}
@@ -618,6 +700,20 @@ function MainContent() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+         {/* Edit Task Modal */}
+        {taskToEdit && (
+            <EditTaskModal
+                isOpen={isEditModalOpen}
+                onClose={() => {
+                    setIsEditModalOpen(false);
+                    setTaskToEdit(null);
+                }}
+                task={taskToEdit}
+                onSave={handleSaveChanges}
+            />
+        )}
+
       </main>
     </TooltipProvider>
   );
@@ -629,6 +725,7 @@ interface KanbanColumnProps {
   tasks: Task[];
   moveTask: (taskId: string, from: string, to: string) => void;
   confirmDeleteTask: (taskId: string, from: string) => void;
+  openEditModal: (task: Task) => void; // Added prop for opening edit modal
   columnId: string;
   icon: React.ReactNode;
   onTaskClick: (task: Task, columnId: string) => void;
@@ -645,6 +742,7 @@ function KanbanColumn({
   tasks,
   moveTask,
   confirmDeleteTask,
+  openEditModal, // Receive edit modal opener
   columnId,
   icon,
   onTaskClick,
@@ -744,6 +842,7 @@ function KanbanColumn({
                                 task={selectedTask}
                                 moveTask={moveTask}
                                 confirmDeleteTask={confirmDeleteTask}
+                                openEditModal={openEditModal} // Pass edit modal opener
                                 from={columnId}
                               />
                          </div>
@@ -766,10 +865,11 @@ interface TaskCardProps {
   task: Task;
   moveTask: (taskId: string, from: string, to: string) => void;
   confirmDeleteTask: (taskId: string, from: string) => void;
+  openEditModal: (task: Task) => void; // Added prop for opening edit modal
   from: string;
 }
 
-function TaskCard({ task, moveTask, confirmDeleteTask, from }: TaskCardProps) {
+function TaskCard({ task, moveTask, confirmDeleteTask, openEditModal, from }: TaskCardProps) {
   const isCloseToDueDate = task.dueDate
     ? differenceInDays(task.dueDate, new Date()) <= 3 && !isPast(task.dueDate)
     : false;
@@ -853,6 +953,21 @@ function TaskCard({ task, moveTask, confirmDeleteTask, from }: TaskCardProps) {
                 <TooltipContent>Mover a Completada</TooltipContent>
               </Tooltip>
              )}
+            {/* Edit Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => openEditModal(task)}
+                  className="hover:bg-gray-500/20 text-gray-500 dark:text-gray-400 dark:hover:bg-gray-700/50"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Editar Tarea</TooltipContent>
+            </Tooltip>
+            {/* Delete Button */}
             <Tooltip>
               <TooltipTrigger asChild>
                  <Button
@@ -872,9 +987,169 @@ function TaskCard({ task, moveTask, confirmDeleteTask, from }: TaskCardProps) {
   );
 }
 
+// Edit Task Modal Component
+interface EditTaskModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    task: Task;
+    onSave: (updatedTaskData: Omit<Task, 'id' | 'status'>) => void;
+}
 
+function EditTaskModal({ isOpen, onClose, task, onSave }: EditTaskModalProps) {
+    const [editedTitle, setEditedTitle] = useState(task.title);
+    const [editedDescription, setEditedDescription] = useState(task.description);
+    const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(task.dueDate);
+    const [formattedModalDate, setFormattedModalDate] = useState<string>('Escoge una fecha');
+
+    // Update local state when the task prop changes (e.g., opening the modal for a different task)
+    useEffect(() => {
+        setEditedTitle(task.title);
+        setEditedDescription(task.description);
+        setEditedDueDate(task.dueDate);
+    }, [task]);
+
+    useEffect(() => {
+        if (editedDueDate instanceof Date) {
+            try {
+                setFormattedModalDate(format(editedDueDate, 'PPP', { locale: es }));
+            } catch (error) {
+                console.error('Error formatting modal date:', error);
+                setFormattedModalDate('Fecha inválida');
+            }
+        } else {
+            setFormattedModalDate('Escoge una fecha');
+        }
+    }, [editedDueDate]);
+
+    const handleModalDateChange = (date: Date | undefined) => {
+        if (date) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (date >= today) {
+                setEditedDueDate(date);
+            } else {
+                 toast({
+                    title: 'Fecha inválida',
+                    description: 'No puedes seleccionar una fecha pasada.',
+                    variant: 'destructive',
+                });
+                // Optionally keep the old date or reset
+                 setEditedDueDate(task.dueDate);
+            }
+        } else {
+            setEditedDueDate(undefined);
+        }
+    };
+
+    const handleSaveClick = () => {
+        if (!editedTitle || !editedDescription) {
+            toast({
+                title: 'Faltan Datos',
+                description: 'Por favor, completa el título y la descripción.',
+                variant: 'destructive',
+            });
+            return;
+        }
+         if (!editedDueDate) {
+            toast({
+                title: 'Falta Fecha',
+                description: 'Por favor, selecciona una fecha de vencimiento.',
+                variant: 'destructive',
+            });
+            return;
+        }
+        onSave({
+            title: editedTitle,
+            description: editedDescription,
+            dueDate: editedDueDate,
+        });
+        onClose(); // Close modal after saving
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[425px] bg-card text-card-foreground border-border">
+                <DialogHeader>
+                    <DialogTitle>Editar Tarea</DialogTitle>
+                    <DialogDescription>
+                        Realiza los cambios necesarios en la tarea. Haz clic en guardar cuando termines.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="edit-title" className="text-right">
+                            Título
+                        </Label>
+                        <Input
+                            id="edit-title"
+                            value={editedTitle}
+                            onChange={(e) => setEditedTitle(e.target.value)}
+                            className="col-span-3 bg-background text-foreground border-input"
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="edit-description" className="text-right">
+                            Descripción
+                        </Label>
+                        <Textarea
+                            id="edit-description"
+                            value={editedDescription}
+                            onChange={(e) => setEditedDescription(e.target.value)}
+                            className="col-span-3 bg-background text-foreground border-input"
+                        />
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                         <Label htmlFor="edit-dueDate" className="text-right">
+                            Fecha
+                        </Label>
+                         <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant={'outline'}
+                                className={cn(
+                                'col-span-3 justify-start text-left font-normal',
+                                !editedDueDate && 'text-muted-foreground',
+                                'bg-card border-input hover:bg-accent hover:text-accent-foreground'
+                                )}
+                            >
+                                {formattedModalDate}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 bg-popover border-popover" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={editedDueDate}
+                                onSelect={handleModalDateChange}
+                                initialFocus
+                                fromMonth={new Date()}
+                                defaultMonth={editedDueDate || new Date()} // Start from selected or current
+                                className="bg-popover text-popover-foreground"
+                                locale={es}
+                                classNames={{
+                                day_selected:
+                                    'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground',
+                                day_today: 'bg-accent text-accent-foreground',
+                                }}
+                            />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="secondary">
+                            Cancelar
+                        </Button>
+                    </DialogClose>
+                    <Button type="button" onClick={handleSaveClick}>Guardar Cambios</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 
     
+
 
 

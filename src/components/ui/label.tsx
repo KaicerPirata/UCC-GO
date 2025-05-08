@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -23,4 +24,5 @@ const Label = React.forwardRef<
 ))
 Label.displayName = LabelPrimitive.Root.displayName
 
-export { Label }
+export { Label } // Ensure Label is exported
+
