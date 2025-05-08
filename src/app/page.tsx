@@ -52,6 +52,8 @@ import {
   updateDoc,
   deleteDoc,
   getDocs,
+  getDoc, // Import getDoc
+  setDoc, // Import setDoc
   query,
   Timestamp,
 } from 'firebase/firestore';
@@ -100,12 +102,14 @@ function MainContent() {
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
 
   // State for responsible people
-  const [responsiblePeople, setResponsiblePeople] = useState<string[]>(['Juan Perez', 'Maria Garcia', 'Carlos Lopez']); // Initial list
+  const [responsiblePeople, setResponsiblePeople] = useState<string[]>([]); // Initial list empty, load from Firestore
   const [newResponsiblePerson, setNewResponsiblePerson] = useState<string | undefined>();
   const [newPersonName, setNewPersonName] = useState<string>('');
-
+  const [loadingResponsible, setLoadingResponsible] = useState(true); // Loading state for responsible list
 
   const tasksCollection = collection(db, 'tasks');
+  const configCollection = collection(db, 'appConfig'); // Collection for app config
+  const responsiblePeopleDocRef = doc(configCollection, 'responsiblePeopleDoc'); // Document ref for responsible people
 
   useEffect(() => {
     if (dueDate instanceof Date) {
@@ -121,12 +125,15 @@ function MainContent() {
     }
   }, [dueDate]);
 
-  // Effect to load tasks from Firestore on component mount
+  // Effect to load data from Firestore on component mount
   useEffect(() => {
-    const fetchTasks = async () => {
+    const fetchData = async () => {
+      setLoadingResponsible(true); // Start loading responsible people
+
+      // Fetch Tasks
       try {
         const tasksQuery = query(tasksCollection);
-        const snapshot = await getDocs(tasksQuery); // Use getDocs for a single load
+        const snapshot = await getDocs(tasksQuery);
 
         const tasks: Task[] = snapshot.docs.map((doc) => {
           const data = doc.data();
@@ -182,10 +189,47 @@ function MainContent() {
           variant: 'destructive',
         });
       }
+
+      // Fetch Responsible People
+      try {
+        const docSnap = await getDoc(responsiblePeopleDocRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data?.people)) {
+            setResponsiblePeople(data.people);
+          } else {
+            // Document exists but 'people' field is missing or not an array
+            console.warn("Document 'responsiblePeopleDoc' exists but 'people' field is invalid. Using default.");
+            // Optionally set a default and create/update the document
+            const defaultPeople = ['Juan Perez', 'Maria Garcia', 'Carlos Lopez'];
+            setResponsiblePeople(defaultPeople);
+            await setDoc(responsiblePeopleDocRef, { people: defaultPeople }, { merge: true }); // Create/update with default
+          }
+        } else {
+          // Document doesn't exist, use default and create it
+          console.log("Document 'responsiblePeopleDoc' not found. Creating with default.");
+          const defaultPeople = ['Juan Perez', 'Maria Garcia', 'Carlos Lopez'];
+          setResponsiblePeople(defaultPeople);
+          await setDoc(responsiblePeopleDocRef, { people: defaultPeople }); // Create with default
+        }
+      } catch (error) {
+        console.error('Error al cargar la lista de responsables:', error);
+        toast({
+          title: 'Error de conexión',
+          description: 'No se pudo cargar la lista de responsables.',
+          variant: 'destructive',
+        });
+        // Fallback to default if loading fails
+        if (responsiblePeople.length === 0) {
+            setResponsiblePeople(['Juan Perez', 'Maria Garcia', 'Carlos Lopez']);
+        }
+      } finally {
+        setLoadingResponsible(false); // Finish loading responsible people
+      }
     };
 
-    fetchTasks();
-  }, [toast]); // Removed tasksCollection dependency as it's constant
+    fetchData();
+  }, [toast]); // Removed collection refs as they are stable
 
   const handleDateChange = (date: Date | undefined) => {
     if (date) {
@@ -207,12 +251,30 @@ function MainContent() {
     }
   };
 
+  // Function to update responsible people in Firestore
+  const updateResponsiblePeopleInFirestore = async (updatedList: string[]) => {
+    try {
+      await setDoc(responsiblePeopleDocRef, { people: updatedList }, { merge: true });
+    } catch (error) {
+      console.error('Error al actualizar la lista de responsables en Firestore:', error);
+      toast({
+        title: 'Error de sincronización',
+        description: 'No se pudo guardar el cambio en la lista de responsables.',
+        variant: 'destructive',
+      });
+      // Optionally revert local state or re-fetch
+      // For simplicity, we'll just show the error for now
+    }
+  };
+
   const handleAddPerson = () => {
     const trimmedName = newPersonName.trim();
     if (trimmedName && !responsiblePeople.includes(trimmedName)) {
-      setResponsiblePeople(prev => [...prev, trimmedName]);
+      const updatedList = [...responsiblePeople, trimmedName];
+      setResponsiblePeople(updatedList);
+      updateResponsiblePeopleInFirestore(updatedList); // Save to Firestore
       setNewPersonName(''); // Clear input after adding
-       toast({
+      toast({
         title: '¡Persona añadida!',
         description: `${trimmedName} ha sido añadido a la lista de responsables.`,
       });
@@ -231,46 +293,41 @@ function MainContent() {
     }
   };
 
-    const handleDeletePerson = (personToDelete: string) => {
-        // Optional: Check if this person is assigned to any tasks before deleting
-        const isAssigned = [...pendingTasks, ...inProgressTasks, ...completedTasks].some(
-            task => task.responsible === personToDelete
-        );
+  const handleDeletePerson = (personToDelete: string) => {
+      // Optional: Check if this person is assigned to any tasks before deleting
+      const isAssigned = [...pendingTasks, ...inProgressTasks, ...completedTasks].some(
+          task => task.responsible === personToDelete
+      );
 
-        // You might want to add a confirmation dialog here, especially if the person is assigned
-        if (isAssigned) {
-            // Example: Alert the user (consider a more user-friendly modal)
-            // if (!confirm(`"${personToDelete}" está asignado a tareas. ¿Seguro que quieres eliminarlo de la lista? Las tareas asignadas no cambiarán.`)) {
-            //     return;
-            // }
-            toast({
-                 title: 'Persona asignada',
-                 description: `${personToDelete} está asignado/a a una o más tareas. Eliminarlo/a de esta lista no lo/a desasignará de las tareas.`,
-                 variant: 'default', // Use default variant for informational message
-                 duration: 5000 // Show for longer
-            })
-        }
+      if (isAssigned) {
+          toast({
+               title: 'Persona asignada',
+               description: `${personToDelete} está asignado/a a una o más tareas. Eliminarlo/a de esta lista no lo/a desasignará de las tareas.`,
+               variant: 'default',
+               duration: 5000
+          })
+      }
 
+      const updatedList = responsiblePeople.filter(person => person !== personToDelete);
+      setResponsiblePeople(updatedList);
+      updateResponsiblePeopleInFirestore(updatedList); // Save to Firestore
 
-        setResponsiblePeople(prev => prev.filter(person => person !== personToDelete));
+      // If the currently selected responsible person for the new task is the one being deleted, reset it
+      if (newResponsiblePerson === personToDelete) {
+          setNewResponsiblePerson(undefined);
+      }
 
-        // If the currently selected responsible person for the new task is the one being deleted, reset it
-        if (newResponsiblePerson === personToDelete) {
-            setNewResponsiblePerson(undefined);
-        }
+      // If the person being edited in the modal is the one being deleted, reset it in the modal
+      // The modal needs to handle this check based on the updated list prop
+      if (taskToEdit?.responsible === personToDelete) {
+         // Let the modal handle this via its useEffect dependency on responsiblePeople
+      }
 
-        // If the person being edited in the modal is the one being deleted, reset it in the modal
-        if (taskToEdit?.responsible === personToDelete) {
-           // This requires passing setTaskToEdit down or handling it differently.
-           // For now, we'll just remove from the list. The edit modal will need to handle this.
-        }
-
-
-        toast({
-            title: '¡Persona eliminada!',
-            description: `${personToDelete} ha sido eliminado/a de la lista de responsables.`,
-        });
-    };
+      toast({
+          title: '¡Persona eliminada!',
+          description: `${personToDelete} ha sido eliminado/a de la lista de responsables.`,
+      });
+  };
 
 
   const handleAddTask = async () => {
@@ -612,9 +669,9 @@ function MainContent() {
                  <Label htmlFor="responsiblePerson" className="block text-sm font-medium text-card-foreground mb-1">
                     Responsable:
                 </Label>
-                 <Select value={newResponsiblePerson} onValueChange={setNewResponsiblePerson}>
+                 <Select value={newResponsiblePerson} onValueChange={setNewResponsiblePerson} disabled={loadingResponsible}>
                     <SelectTrigger id="responsiblePerson" className="w-full mt-1 shadow-sm focus:ring-primary focus:border-primary sm:text-sm border-input rounded-md bg-background text-foreground">
-                        <SelectValue placeholder="Selecciona una persona" />
+                        <SelectValue placeholder={loadingResponsible ? "Cargando..." : "Selecciona una persona"} />
                     </SelectTrigger>
                     <SelectContent>
                         {responsiblePeople.map((person) => (
@@ -638,7 +695,9 @@ function MainContent() {
                      </div>
                       {/* Kept the list display for managing people */}
                      <div className="mt-2 space-y-1 max-h-32 overflow-y-auto border rounded-md p-2 bg-muted/30">
-                        {responsiblePeople.length > 0 ? responsiblePeople.map((person) => (
+                        {loadingResponsible ? (
+                          <p className="text-xs text-muted-foreground italic text-center">Cargando responsables...</p>
+                        ) : responsiblePeople.length > 0 ? responsiblePeople.map((person) => (
                             <div key={person} className="flex items-center justify-between text-sm">
                                 <span>{person}</span>
                                 <Button onClick={() => handleDeletePerson(person)} size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" aria-label={`Eliminar ${person}`}>
@@ -836,7 +895,8 @@ function MainContent() {
                 task={taskToEdit}
                 onSave={handleSaveChanges}
                 responsiblePeople={responsiblePeople} // Pass responsible people list
-                setResponsiblePeople={setResponsiblePeople} // Pass setter to allow editing modal to update list
+                onAddPerson={handleAddPerson} // Pass add function
+                onDeletePerson={handleDeletePerson} // Pass delete function
             />
         )}
 
@@ -1128,10 +1188,19 @@ interface EditTaskModalProps {
     task: Task;
     onSave: (updatedTaskData: Omit<Task, 'id' | 'status'>) => void;
     responsiblePeople: string[]; // Add responsible people list prop
-    setResponsiblePeople: React.Dispatch<React.SetStateAction<string[]>>; // Add setter
+    onAddPerson: (name: string) => void; // Function to add a person globally
+    onDeletePerson: (name: string) => void; // Function to delete a person globally
 }
 
-function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople, setResponsiblePeople }: EditTaskModalProps) {
+function EditTaskModal({
+    isOpen,
+    onClose,
+    task,
+    onSave,
+    responsiblePeople,
+    onAddPerson,
+    onDeletePerson,
+}: EditTaskModalProps) {
     const [editedTitle, setEditedTitle] = useState(task.title);
     const [editedDescription, setEditedDescription] = useState(task.description);
     const [editedDueDate, setEditedDueDate] = useState<Date | undefined>(task.dueDate);
@@ -1139,12 +1208,6 @@ function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople, setRe
     const [formattedModalDate, setFormattedModalDate] = useState<string>('Escoge una fecha');
     const [newPersonNameModal, setNewPersonNameModal] = useState<string>(''); // State for adding new person within modal
     const { toast } = useToast(); // Get toast function
-
-    // Need access to task lists to check assignment status in handleDeletePersonInModal
-    // This requires lifting state or context. We'll assume access via props or context for now.
-    // Let's pass the task lists down if needed, or simplify the check.
-    // For simplicity, we'll omit the check here, assuming the global list management handles it.
-    // const { pendingTasks, inProgressTasks, completedTasks } = useTaskLists(); // Hypothetical hook
 
     // Update local state when the task prop changes (e.g., opening the modal for a different task)
     useEffect(() => {
@@ -1191,35 +1254,27 @@ function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople, setRe
 
     const handleAddPersonInModal = () => {
         const trimmedName = newPersonNameModal.trim();
-        if (trimmedName && !responsiblePeople.includes(trimmedName)) {
-            setResponsiblePeople(prev => [...prev, trimmedName]); // Update global list
-            setNewPersonNameModal(''); // Clear input
-             toast({
-                title: '¡Persona añadida!',
-                description: `${trimmedName} ha sido añadido a la lista global de responsables.`,
-            });
-            // Optionally select the newly added person
-            setEditedResponsible(trimmedName);
-        } else if (!trimmedName) {
-             toast({ title: 'Nombre vacío', description: 'Por favor, ingresa un nombre.', variant: 'destructive' });
+        if (trimmedName) {
+             // Call the global add function passed via props
+             onAddPerson(trimmedName);
+             setNewPersonNameModal(''); // Clear input
+             // The global function will handle the toast and Firestore update
+             // Optionally select the newly added person
+             setEditedResponsible(trimmedName);
         } else {
-             toast({ title: 'Nombre duplicado', description: `${trimmedName} ya existe en la lista.`, variant: 'destructive' });
+             toast({ title: 'Nombre vacío', description: 'Por favor, ingresa un nombre.', variant: 'destructive' });
         }
     };
 
      const handleDeletePersonInModal = (personToDelete: string) => {
-        // Simplified - directly modifies the list via the passed setter
-        setResponsiblePeople(prev => prev.filter(person => person !== personToDelete));
+        // Call the global delete function passed via props
+        onDeletePerson(personToDelete);
+        // The global function handles toast and Firestore update
 
         // If the currently selected responsible person for the *edited* task is the one being deleted, reset it
         if (editedResponsible === personToDelete) {
             setEditedResponsible(undefined);
         }
-
-        toast({
-            title: '¡Persona eliminada!',
-            description: `${personToDelete} ha sido eliminado/a de la lista global de responsables.`,
-        });
     };
 
 
@@ -1374,3 +1429,5 @@ function EditTaskModal({ isOpen, onClose, task, onSave, responsiblePeople, setRe
         </Dialog>
     );
 }
+
+    
