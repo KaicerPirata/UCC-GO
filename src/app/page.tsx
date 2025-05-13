@@ -35,7 +35,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Check, Settings, Trash2, Clock, Pencil, User as UserIcon, Plus, X } from 'lucide-react'; // Added Pencil, UserIcon, Plus, X icon
+import { Check, Settings, Trash2, Clock, Pencil, User as UserIcon, Plus, X, UsersRound } from 'lucide-react'; // Added Pencil, UserIcon, Plus, X, UsersRound icon
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -64,7 +64,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 interface Task {
@@ -105,9 +106,9 @@ function MainContent() {
   // State for responsible people
   const [responsiblePeople, setResponsiblePeople] = useState<string[]>([]); // Initial list empty, load from Firestore
   const [newResponsiblePerson, setNewResponsiblePerson] = useState<string | undefined>();
-  const [newPersonName, setNewPersonName] = useState<string>('');
+  // const [newPersonName, setNewPersonName] = useState<string>(''); // Removed: Handled in ManagePeopleModal
   const [loadingResponsible, setLoadingResponsible] = useState(true); // Loading state for responsible list
-  const [isDeletePersonModalOpen, setIsDeletePersonModalOpen] = useState(false); // State for delete person modal
+  const [isManagePeopleModalOpen, setIsManagePeopleModalOpen] = useState(false);
 
 
   const tasksCollection = collection(db, 'tasks');
@@ -256,7 +257,7 @@ function MainContent() {
     };
 
     fetchData();
-  }, [toast]); // Removed collection refs as they are stable
+  }, []); // Removed toast and collection refs as they are stable
 
   const handleDateChange = (date: Date | undefined) => {
     if (date) {
@@ -294,17 +295,17 @@ function MainContent() {
     }
   };
 
-  const handleAddPerson = () => {
-    const trimmedName = newPersonName.trim();
+  const handleAddPersonToList = (nameToAdd: string) => {
+    const trimmedName = nameToAdd.trim();
     if (trimmedName && !responsiblePeople.includes(trimmedName)) {
       const updatedList = [...responsiblePeople, trimmedName];
       setResponsiblePeople(updatedList);
-      updateResponsiblePeopleInFirestore(updatedList); // Save to Firestore
-      setNewPersonName(''); // Clear input after adding
+      updateResponsiblePeopleInFirestore(updatedList);
       toast({
         title: '¡Persona añadida!',
         description: `${trimmedName} ha sido añadido a la lista de responsables.`,
       });
+      return true; // Indicate success
     } else if (!trimmedName) {
          toast({
             title: 'Nombre vacío',
@@ -318,6 +319,7 @@ function MainContent() {
             variant: 'destructive',
         });
     }
+    return false; // Indicate failure
   };
 
   const handleDeletePerson = (personToDelete: string) => {
@@ -706,34 +708,37 @@ function MainContent() {
                  <Label htmlFor="responsiblePerson" className="block text-sm font-medium text-card-foreground mb-1">
                     Responsable:
                 </Label>
-                 <Select value={newResponsiblePerson} onValueChange={setNewResponsiblePerson} disabled={loadingResponsible}>
-                    <SelectTrigger id="responsiblePerson" className="w-full mt-1 shadow-sm focus:ring-primary focus:border-primary sm:text-sm border-input rounded-md bg-background text-foreground">
-                        <SelectValue placeholder={loadingResponsible ? "Cargando..." : "Selecciona una persona"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {responsiblePeople.map((person) => (
-                            <SelectItem key={person} value={person}>{person}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                 <div className="mt-4 space-y-2">
-                     <div className="flex items-center gap-2">
-                         <Input
-                            type="text"
-                            placeholder="Añadir nueva persona"
-                            value={newPersonName}
-                            onChange={(e) => setNewPersonName(e.target.value)}
-                             className="flex-grow shadow-sm focus:ring-primary focus:border-primary sm:text-sm border-input rounded-md bg-background text-foreground"
-                        />
-                        <Button onClick={handleAddPerson} size="sm" variant="outline" aria-label="Añadir persona">
-                           Añadir
-                        </Button>
-                         <Button onClick={() => setIsDeletePersonModalOpen(true)} size="sm" variant="destructive" aria-label="Eliminar persona" disabled={loadingResponsible || responsiblePeople.length === 0}>
-                           Eliminar
-                        </Button>
-                     </div>
-                    {/* Removed inline list display */}
-                 </div>
+                <div className="flex items-center gap-2">
+                    <Select value={newResponsiblePerson} onValueChange={setNewResponsiblePerson} disabled={loadingResponsible}>
+                        <SelectTrigger id="responsiblePerson" className="w-full mt-1 shadow-sm focus:ring-primary focus:border-primary sm:text-sm border-input rounded-md bg-background text-foreground">
+                            <SelectValue placeholder={loadingResponsible ? "Cargando..." : "Selecciona una persona"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {responsiblePeople.map((person) => (
+                                <SelectItem key={person} value={person}>{person}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setIsManagePeopleModalOpen(true)}
+                                    className="mt-1 shrink-0" // Ensure button doesn't shrink
+                                    aria-label="Gestionar responsables"
+                                    disabled={loadingResponsible}
+                                >
+                                    <UsersRound className="h-5 w-5" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Gestionar responsables</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                </div>
             </div>
             <div className="flex items-center gap-4 mt-2">
               <Popover>
@@ -920,17 +925,17 @@ function MainContent() {
                 task={taskToEdit}
                 onSave={handleSaveChanges}
                 responsiblePeople={responsiblePeople} // Pass responsible people list
-                // Removed props related to managing people list globally as it's disabled here
             />
         )}
-
-         {/* Delete Person Modal */}
-        <DeletePersonModal
-            isOpen={isDeletePersonModalOpen}
-            onClose={() => setIsDeletePersonModalOpen(false)}
+        
+        <ManagePeopleModal
+            isOpen={isManagePeopleModalOpen}
+            onClose={() => setIsManagePeopleModalOpen(false)}
             responsiblePeople={responsiblePeople}
+            onAddPerson={handleAddPersonToList}
             onDeletePerson={handleDeletePerson}
         />
+
 
       </main>
     </TooltipProvider>
@@ -1420,55 +1425,91 @@ function EditTaskModal({
     );
 }
 
-// Delete Person Modal Component
-interface DeletePersonModalProps {
+// Manage People Modal Component
+interface ManagePeopleModalProps {
   isOpen: boolean;
   onClose: () => void;
   responsiblePeople: string[];
-  onDeletePerson: (personToDelete: string) => void;
+  onAddPerson: (name: string) => boolean; // Returns true on success to clear input
+  onDeletePerson: (name: string) => void;
 }
 
-function DeletePersonModal({
+function ManagePeopleModal({
   isOpen,
   onClose,
   responsiblePeople,
+  onAddPerson,
   onDeletePerson,
-}: DeletePersonModalProps) {
+}: ManagePeopleModalProps) {
+  const [localNewPersonName, setLocalNewPersonName] = useState('');
+
+  const handleAddClick = () => {
+    if (onAddPerson(localNewPersonName)) {
+      setLocalNewPersonName(''); // Clear input on success
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] bg-card text-card-foreground border-border">
+      <DialogContent className="sm:max-w-md bg-card text-card-foreground border-border">
         <DialogHeader>
-          <DialogTitleShadCN>Eliminar Responsable</DialogTitleShadCN>
+          <DialogTitleShadCN>Gestionar Responsables</DialogTitleShadCN>
           <DialogDescriptionShadCN>
-            Selecciona la persona que deseas eliminar de la lista de responsables.
-            Esta acción no se puede deshacer y la eliminará permanentemente de la lista global.
+            Añade nuevas personas o elimina existentes de la lista de responsables.
           </DialogDescriptionShadCN>
         </DialogHeader>
-        <div className="py-4 max-h-60 overflow-y-auto">
-          {responsiblePeople.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center">No hay responsables para eliminar.</p>
-          ) : (
-            <ul className="space-y-2">
-              {responsiblePeople.map((person) => (
-                <li key={person} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
-                  <span className="text-sm">{person}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                    onClick={() => {
-                      onDeletePerson(person);
-                      // Optionally close the modal after deletion or keep it open to delete more
-                      // onClose(); // Uncomment to close after one deletion
-                    }}
-                    aria-label={`Eliminar ${person}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="py-4 space-y-6">
+          {/* Add Person Section */}
+          <div>
+            <Label htmlFor="manage-newPersonName" className="text-sm font-medium block mb-1">Añadir Nueva Persona</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="manage-newPersonName"
+                type="text"
+                placeholder="Nombre de la persona"
+                value={localNewPersonName}
+                onChange={(e) => setLocalNewPersonName(e.target.value)}
+                className="flex-grow bg-background text-foreground border-input"
+              />
+              <Button onClick={handleAddClick} size="sm" variant="outline">Añadir</Button>
+            </div>
+          </div>
+
+          {/* Delete Person Section */}
+          <div>
+            <Label className="text-sm font-medium block mb-1">Eliminar Persona Existente</Label>
+            {responsiblePeople.length === 0 ? (
+              <p className="text-sm text-muted-foreground mt-1">No hay responsables para eliminar.</p>
+            ) : (
+              <ScrollArea className="h-48 mt-1 rounded-md border border-input">
+                <div className="p-2 space-y-1">
+                  {responsiblePeople.map((person) => (
+                    <div key={person} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/10">
+                      <span className="text-sm">{person}</span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                              onClick={() => onDeletePerson(person)}
+                              aria-label={`Eliminar ${person}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Eliminar {person}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="secondary" onClick={onClose}>
